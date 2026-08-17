@@ -1,36 +1,23 @@
+import cors from "cors"
 import express from "express"
-import type { Express } from "express"
-import cors from "cors";
 import routes from "../routes/index.js"
+import { handleError } from "../middlewares/error.middleware.js"
 import { setupSwagger } from "./swagger.js"
 
-class App {
-  public server: Express
-
-  constructor() {
-    this.server = express()
-    this.middlewares()
-    setupSwagger(this.server)
-    this.routes()
-  }
-
-  private middlewares(): void {
-    const allowedOrigin = process.env.FRONTEND_URL ?? "http://localhost:5173"
-    const corsOptions = {
-      origin: allowedOrigin,
-      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
-    }
-
-    this.server.use(cors(corsOptions))
-    this.server.options(/.*/, cors(corsOptions))
-    this.server.use(express.json({ limit: "10mb" }))
-    this.server.use(express.urlencoded({ extended: true, limit: "10mb" }))
-  }
-
-  private routes(): void {
-    this.server.use("/api/v1", routes)
-  }
+const app = express()
+const corsOptions = {
+  origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }
 
-export default new App().server
+app.use(cors(corsOptions))
+app.options(/.*/, cors(corsOptions))
+app.use(express.json({ limit: "10mb" }))
+app.use(express.urlencoded({ extended: true, limit: "10mb" }))
+
+setupSwagger(app)
+app.use("/api/v1", routes)
+app.use(handleError)
+
+export default app

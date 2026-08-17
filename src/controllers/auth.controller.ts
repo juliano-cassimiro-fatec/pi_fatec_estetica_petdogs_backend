@@ -46,51 +46,31 @@ class AuthController {
     }
 
     public async register(req: Request, res: Response): Promise<Response> {
-        try {
-            const { name, email, password, telefone, foto } = req.body ?? {}
-            const result = await authService.register({ name, email, password, telefone, foto })
+        const { name, email, password, telefone, foto } = req.body ?? {}
+        const result = await authService.register({ name, email, password, telefone, foto })
 
-            return res.status(201).json(result)
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Erro ao cadastrar usuário"
-            return res.status(400).json({ message })
-        }
+        return res.status(201).json(result)
     }
 
     public async login(req: Request, res: Response): Promise<Response> {
-        try {
-            const { email, password } = req.body ?? {}
-            const result = await authService.login({ email, password })
+        const { email, password } = req.body ?? {}
+        const result = await authService.login({ email, password })
 
-            return res.status(200).json(result)
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Erro ao autenticar usuário"
-            return res.status(401).json({ message })
-        }
+        return res.status(200).json(result)
     }
 
     public async forgotPassword(req: Request, res: Response): Promise<Response> {
-        try {
-            const { email } = req.body ?? {}
-            const result = await authService.forgotPassword({ email })
+        const { email } = req.body ?? {}
+        const result = await authService.forgotPassword({ email })
 
-            return res.status(200).json(result)
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Erro ao solicitar recuperação de senha"
-            return res.status(400).json({ message })
-        }
+        return res.status(200).json(result)
     }
 
     public async resetPassword(req: Request, res: Response): Promise<Response> {
-        try {
-            const { token, password } = req.body ?? {}
-            const result = await authService.resetPassword({ token, password })
+        const { token, password } = req.body ?? {}
+        const result = await authService.resetPassword({ token, password })
 
-            return res.status(200).json(result)
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Erro ao redefinir senha"
-            return res.status(400).json({ message })
-        }
+        return res.status(200).json(result)
     }
 }
 

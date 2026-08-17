@@ -33,11 +33,11 @@ class AnimalService {
 
         if (data.foto?.trim()) payload.foto = data.foto.trim()
 
-        return await Animal.create(payload)
+        return Animal.create(payload)
     }
 
     public async getAll(user: { id: string; role: UserRole }) {
-        return await Animal.find(this.buildScope(user)).populate("cliente", "name email telefone foto").sort({ createdAt: -1 })
+        return Animal.find(this.buildScope(user)).populate("cliente", "name email telefone foto").sort({ createdAt: -1 })
     }
 
     public async getById(id: string, user: { id: string; role: UserRole }) {

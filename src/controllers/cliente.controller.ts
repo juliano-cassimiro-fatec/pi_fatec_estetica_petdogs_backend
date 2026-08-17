@@ -4,15 +4,10 @@ import type { AuthenticatedRequest } from "../middlewares/request.types.js"
 
 class ClienteController {
     async create(req: AuthenticatedRequest, res: Response): Promise<Response> {
-        try {
-            const { name, email, telefone, foto, senha, password } = req.body ?? {}
-            const cliente = await clienteService.create({ name, email, telefone, foto, senha: senha ?? password })
+        const { name, email, telefone, foto, senha, password } = req.body ?? {}
+        const cliente = await clienteService.create({ name, email, telefone, foto, senha: senha ?? password })
 
-            return res.status(201).json(cliente)
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Erro ao cadastrar cliente"
-            return res.status(400).json({ message })
-        }
+        return res.status(201).json(cliente)
     }
 
     async getAll(_req: AuthenticatedRequest, res: Response) {
@@ -32,16 +27,11 @@ class ClienteController {
     }
 
     async update(req: AuthenticatedRequest, res: Response) {
-        try {
-            const id = req.targetId ?? ""
-            const { name, email, telefone, foto, senha, password } = req.body ?? {}
-            const cliente = await clienteService.update(id, { name, email, telefone, foto, senha: senha ?? password })
+        const id = req.targetId ?? ""
+        const { name, email, telefone, foto, senha, password } = req.body ?? {}
+        const cliente = await clienteService.update(id, { name, email, telefone, foto, senha: senha ?? password })
 
-            return res.status(200).json(cliente)
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Erro ao atualizar cliente"
-            return res.status(400).json({ message })
-        }
+        return res.status(200).json(cliente)
     }
 
     async delete(req: AuthenticatedRequest, res: Response) {

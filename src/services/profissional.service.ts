@@ -97,15 +97,15 @@ class ProfissionalService {
         if (data.telefone?.trim()) payload.telefone = data.telefone.trim()
         if (data.foto?.trim()) payload.foto = data.foto.trim()
 
-        return await Profissional.create(payload)
+        return Profissional.create(payload)
     }
 
     async getAll() {
-        return await Profissional.find().sort({ name: 1 })
+        return Profissional.find().sort({ name: 1 })
     }
 
     async getById(id: string) {
-        return await Profissional.findById(id)
+        return Profissional.findById(id)
     }
 
     async update(id: string, data: IUpdateProfissionalDTO) {
@@ -128,11 +128,11 @@ class ProfissionalService {
             payload.senha = await authService.hashPassword(data.senha)
         }
 
-        return await Profissional.findByIdAndUpdate(id, payload, { new: true })
+        return Profissional.findByIdAndUpdate(id, payload, { new: true })
     }
 
     async delete(id: string) {
-        return await Profissional.findByIdAndDelete(id)
+        return Profissional.findByIdAndDelete(id)
     }
 }
 

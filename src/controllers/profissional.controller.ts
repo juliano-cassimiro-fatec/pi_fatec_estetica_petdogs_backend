@@ -4,15 +4,10 @@ import type { AuthenticatedRequest } from "../middlewares/request.types.js"
 
 class ProfissionalController {
     async create(req: AuthenticatedRequest, res: Response): Promise<Response> {
-        try {
-            const { name, email, senha, password, telefone, foto, especialidade, dias_trabalho, horario_inicio, horario_fim, almoco_inicio, almoco_fim, disponibilidade_inicio, disponibilidade_fim } = req.body ?? {}
-            const profissional = await profissionalService.create({ name, email, senha: senha ?? password, telefone, foto, especialidade, dias_trabalho, horario_inicio, horario_fim, almoco_inicio, almoco_fim, disponibilidade_inicio, disponibilidade_fim })
+        const { name, email, senha, password, telefone, foto, especialidade, dias_trabalho, horario_inicio, horario_fim, almoco_inicio, almoco_fim, disponibilidade_inicio, disponibilidade_fim } = req.body ?? {}
+        const profissional = await profissionalService.create({ name, email, senha: senha ?? password, telefone, foto, especialidade, dias_trabalho, horario_inicio, horario_fim, almoco_inicio, almoco_fim, disponibilidade_inicio, disponibilidade_fim })
 
-            return res.status(201).json(profissional)
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Erro ao cadastrar profissional"
-            return res.status(400).json({ message })
-        }
+        return res.status(201).json(profissional)
     }
 
     async getAll(_req: AuthenticatedRequest, res: Response) {
