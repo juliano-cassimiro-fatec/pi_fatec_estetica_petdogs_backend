@@ -9,6 +9,12 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@petshop.com"
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "admin123"
 const ADMIN_NAME = process.env.ADMIN_NAME ?? "Administrador"
 
+function derivePassword(password: string, salt: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        crypto.scrypt(password, salt, 64, (error, key) => error ? reject(error) : resolve(key))
+    })
+}
+
 class AuthService {
     private validateEmail(email: string): boolean {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -22,12 +28,7 @@ class AuthService {
 
     public async hashPassword(password: string): Promise<string> {
         const salt = crypto.randomBytes(16).toString("hex")
-        const hash = await new Promise<Buffer>((resolve, reject) => {
-            crypto.scrypt(password, salt, 64, (error, derivedKey) => {
-                if (error) reject(error)
-                resolve(derivedKey)
-            })
-        })
+        const hash = await derivePassword(password, salt)
         return `scrypt:${salt}:${hash.toString("hex")}`
     }
 
@@ -38,14 +39,10 @@ class AuthService {
             return false
         }
 
-        const derivedHash = await new Promise<Buffer>((resolve, reject) => {
-            crypto.scrypt(password, salt, 64, (error, derivedKey) => {
-                if (error) reject(error)
-                resolve(derivedKey)
-            })
-        })
+        const storedHash = Buffer.from(hash, "hex")
+        const derivedHash = await derivePassword(password, salt)
 
-        return crypto.timingSafeEqual(Buffer.from(hash, "hex"), derivedHash)
+        return storedHash.length === derivedHash.length && crypto.timingSafeEqual(storedHash, derivedHash)
     }
 
     private base64Url(input: Buffer | string): string {
@@ -80,7 +77,9 @@ class AuthService {
 
         const expectedSignature = crypto.createHmac("sha256", JWT_SECRET).update(`${header}.${payload}`).digest("base64url")
 
-        if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+        const receivedSignature = Buffer.from(signature)
+        const validSignature = Buffer.from(expectedSignature)
+        if (receivedSignature.length !== validSignature.length || !crypto.timingSafeEqual(receivedSignature, validSignature)) {
             throw new Error("Token inválido")
         }
 

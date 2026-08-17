@@ -26,8 +26,3 @@ export interface IAvailabilityQuery {
     servicoId: string
     date: string
 }
-
-export interface IUpdateAgendamentoDTO {
-    data_hora?: Date | string
-    status?: AgendamentoStatus
-}

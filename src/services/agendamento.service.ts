@@ -43,10 +43,6 @@ class AgendamentoService {
         return (hours * 60) + minutes
     }
 
-    private fromMinutes(date: Date, minutes: number): Date {
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, minutes, 0, 0)
-    }
-
     private getWorkingDays(profissional: { dias_trabalho?: number[] }) {
         return profissional.dias_trabalho?.length ? profissional.dias_trabalho : DEFAULT_WORKING_DAYS
     }
@@ -71,8 +67,8 @@ class AgendamentoService {
         return { start, end }
     }
 
-    private overlaps(startA: Date, endA: Date, startB: Date, endB: Date) {
-        return startA < endB && endA > startB
+    private overlaps(first: TimeInterval, second: TimeInterval) {
+        return first.start < second.end && first.end > second.start
     }
 
     private getDayBounds(date: Date) {
@@ -169,22 +165,6 @@ class AgendamentoService {
         }
     }
 
-    private getAvailableStarts(date: Date, workingWindow: TimeInterval, blockedIntervals: TimeInterval[], durationMinutes: number) {
-        const freeIntervals = this.subtractIntervals(workingWindow, blockedIntervals)
-        const slotStarts: Date[] = []
-
-        for (const interval of freeIntervals) {
-            const firstAlignedStart = Math.ceil(interval.start / SLOT_STEP_MINUTES) * SLOT_STEP_MINUTES
-            for (let minute = firstAlignedStart; minute + durationMinutes <= interval.end; minute += SLOT_STEP_MINUTES) {
-                const slot = new Date(date)
-                slot.setHours(0, minute, 0, 0)
-                slotStarts.push(slot)
-            }
-        }
-
-        return slotStarts
-    }
-
     private async getScheduleConflicts(profissionalId: string, date: Date, excludeId?: string) {
         const { start, end } = this.getDayBounds(date)
         const filter: Record<string, unknown> = {
@@ -225,12 +205,7 @@ class AgendamentoService {
         const { blockedIntervals } = await this.getBlockedIntervals(profissionalId, dataHora, servico.duracao_min, excludeId)
         const targetInterval = this.toInterval(dataHora, servico.duracao_min)
 
-        const hasConflict = blockedIntervals.some((blocked) => this.overlaps(
-            this.fromMinutes(dataHora, targetInterval.start),
-            this.fromMinutes(dataHora, targetInterval.end),
-            this.fromMinutes(dataHora, blocked.start),
-            this.fromMinutes(dataHora, blocked.end)
-        ))
+        const hasConflict = blockedIntervals.some((blocked) => this.overlaps(targetInterval, blocked))
 
         if (hasConflict) {
             throw new Error("Horário indisponível para este profissional")
@@ -323,38 +298,29 @@ class AgendamentoService {
             }
         }
 
-        const dayBounds = this.getDayBounds(date)
         const startMinutes = this.toMinutes(window.start)
         const endMinutes = this.toMinutes(window.end)
         const dayWindow = { start: startMinutes, end: endMinutes }
         const { blockedIntervals } = await this.getBlockedIntervals(profissional.id, date, servico.duracao_min)
-        const availableStarts = this.getAvailableStarts(date, dayWindow, blockedIntervals, servico.duracao_min)
-
-        const slots: Array<{ time: string; datetime: string; available: boolean }> = availableStarts.map((slotStart) => ({
-            time: `${String(slotStart.getHours()).padStart(2, "0")}:${String(slotStart.getMinutes()).padStart(2, "0")}`,
-            datetime: slotStart.toISOString(),
-            available: slotStart >= dayBounds.start && new Date(slotStart.getTime() + (servico.duracao_min * 60000)) <= dayBounds.end,
-        }))
-
-        const fullSlots: Array<{ time: string; datetime: string; available: boolean }> = []
+        const freeIntervals = this.subtractIntervals(dayWindow, blockedIntervals)
+        const slots: Array<{ time: string; datetime: string; available: boolean }> = []
 
         for (let minutes = startMinutes; minutes <= endMinutes - servico.duracao_min; minutes += SLOT_STEP_MINUTES) {
-            const slotStart = this.fromMinutes(date, minutes)
+            const slotStart = new Date(date)
             slotStart.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0)
-            const slotEnd = new Date(slotStart.getTime() + (servico.duracao_min * 60000))
-            const available = slots.some((slot) => slot.datetime === slotStart.toISOString()) && slotStart >= dayBounds.start && slotEnd <= dayBounds.end
+            const slot = { start: minutes, end: minutes + servico.duracao_min }
 
-            fullSlots.push({
+            slots.push({
                 time: `${String(slotStart.getHours()).padStart(2, "0")}:${String(slotStart.getMinutes()).padStart(2, "0")}`,
                 datetime: slotStart.toISOString(),
-                available,
+                available: freeIntervals.some((interval) => slot.start >= interval.start && slot.end <= interval.end),
             })
         }
 
         return {
             date: query.date,
-            available: fullSlots.some((slot) => slot.available),
-            slots: fullSlots,
+            available: slots.some((slot) => slot.available),
+            slots,
             workingDays,
             window,
             duration_min: servico.duracao_min,
