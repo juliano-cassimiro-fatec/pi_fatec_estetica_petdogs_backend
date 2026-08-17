@@ -1,7 +1,0 @@
-export type { IBaseRepository } from "./base.repository.js"
-export type { IAgendamentoRepository } from "./agendamento.repository.js"
-export type { IAnimalRepository } from "./animal.repository.js"
-export type { IClienteRepository } from "./cliente.repository.js"
-export type { IProfissionalRepository } from "./profissional.repository.js"
-export type { IRelatorioRepository } from "./relatorio.repository.js"
-export type { IServicoRepository } from "./servico.repository.js"
