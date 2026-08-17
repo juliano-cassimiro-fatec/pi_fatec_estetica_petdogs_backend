@@ -20,15 +20,15 @@ class ClienteService {
         if (data.telefone?.trim()) payload.telefone = data.telefone.trim()
         if (data.foto?.trim()) payload.foto = data.foto.trim()
 
-        return await Cliente.create(payload)
+        return Cliente.create(payload)
     }
 
     async getAll() {
-        return await Cliente.find().sort({ name: 1 })
+        return Cliente.find().sort({ name: 1 })
     }
 
     async getById(id: string) {
-        return await Cliente.findById(id)
+        return Cliente.findById(id)
     }
 
     async update(id: string, data: IUpdateClienteDTO) {
@@ -42,11 +42,11 @@ class ClienteService {
             payload.senha = await authService.hashPassword(data.senha)
         }
 
-        return await Cliente.findByIdAndUpdate(id, payload, { new: true })
+        return Cliente.findByIdAndUpdate(id, payload, { new: true })
     }
 
     async delete(id: string) {
-        return await Cliente.findByIdAndDelete(id)
+        return Cliente.findByIdAndDelete(id)
     }
 }
 

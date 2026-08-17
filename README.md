@@ -21,7 +21,7 @@ src/
 ├── app/              # Configuração do Express e Swagger
 ├── config/           # Configuração de banco de dados
 ├── controllers/      # Entrada HTTP: lê request, chama service e responde
-├── middlewares/      # Autenticação, autorização e tipos de request
+├── middlewares/      # Autenticação, autorização e tratamento central de erros
 ├── models/           # Schemas Mongoose e tipos
 ├── routes/           # Rotas da API
 ├── services/         # Regras de negócio

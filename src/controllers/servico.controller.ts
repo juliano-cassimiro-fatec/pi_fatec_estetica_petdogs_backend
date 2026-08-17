@@ -3,15 +3,10 @@ import servicoService from "../services/servico.service.js"
 
 class ServicoController {
     public async create(request: Request, response: Response): Promise<Response> {
-        try {
-            const { name, descricao, duracao_min, preco } = request.body ?? {}
-            const servico = await servicoService.create({ name, descricao, duracao_min, preco })
+        const { name, descricao, duracao_min, preco } = request.body ?? {}
+        const servico = await servicoService.create({ name, descricao, duracao_min, preco })
 
-            return response.status(201).json(servico)
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Erro ao cadastrar serviço"
-            return response.status(400).json({ message })
-        }
+        return response.status(201).json(servico)
     }
 
     public async findAll(_request: Request, response: Response): Promise<Response> {

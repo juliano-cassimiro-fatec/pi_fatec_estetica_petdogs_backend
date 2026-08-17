@@ -23,7 +23,7 @@ class ServicoService {
     public async create(data: ICreateServicoDTO) {
         this.validate(data)
 
-        return await Servico.create({
+        return Servico.create({
             name: data.name.trim(),
             descricao: data.descricao.trim(),
             duracao_min: Number(data.duracao_min),
@@ -32,15 +32,15 @@ class ServicoService {
     }
 
     public async findAll() {
-        return await Servico.find().sort({ name: 1 })
+        return Servico.find().sort({ name: 1 })
     }
 
     public async findById(id: string) {
-        return await Servico.findById(id)
+        return Servico.findById(id)
     }
 
     public async delete(id: string) {
-        return await Servico.findByIdAndDelete(id)
+        return Servico.findByIdAndDelete(id)
     }
 
     public async update(id: string, data: IUpdateServicoDTO) {
@@ -51,7 +51,7 @@ class ServicoService {
         if (data.duracao_min !== undefined) payload.duracao_min = Number(data.duracao_min)
         if (data.preco !== undefined) payload.preco = Number(data.preco)
 
-        return await Servico.findByIdAndUpdate(id, payload, { new: true })
+        return Servico.findByIdAndUpdate(id, payload, { new: true })
     }
 }
 

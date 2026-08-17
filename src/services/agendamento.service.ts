@@ -197,7 +197,7 @@ class AgendamentoService {
             filter._id = { $ne: excludeId }
         }
 
-        return await Agendamento.find(filter).populate("servico", "duracao_min")
+        return Agendamento.find(filter).populate("servico", "duracao_min")
     }
 
     private async validateAvailability(profissionalId: string, servicoId: string, dataHora: Date, excludeId?: string) {
@@ -254,7 +254,7 @@ class AgendamentoService {
 
         await this.validateAvailability(data.profissional, data.servico, dataHora)
 
-        return await Agendamento.create({
+        return Agendamento.create({
             data_hora: dataHora,
             status: "scheduled",
             cliente: data.cliente,
@@ -284,7 +284,7 @@ class AgendamentoService {
         const nextStatus = data.status ?? existing.status
         const nextAnimal = data.animal ?? String(existing.animal)
 
-        return await Agendamento.findByIdAndUpdate(
+        return Agendamento.findByIdAndUpdate(
             id,
             {
                 data_hora: nextDateTime,
@@ -397,7 +397,7 @@ class AgendamentoService {
     public async getAll(user: { id: string; role: UserRole }) {
         const filter = user.role === "admin" ? {} : user.role === "profissional" ? { profissional: user.id } : { cliente: user.id }
 
-        return await Agendamento.find(filter)
+        return Agendamento.find(filter)
             .populate("cliente", "name email telefone foto")
             .populate("animal")
             .populate("servico")
