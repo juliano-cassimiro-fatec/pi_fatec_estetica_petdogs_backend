@@ -4,6 +4,8 @@ import Profissional from "../models/profissional.model.js"
 import Servico from "../models/servico.model.js"
 import type { UserRole } from "../models/auth.types.js"
 import type { IAvailabilityQuery, ICreateAgendamentoDTO } from "../models/agendamento.types.js"
+import { badRequest, forbidden, notFound } from "../errors/app-error.js"
+import { assertObjectId } from "../utils/validation.js"
 
 const SLOT_STEP_MINUTES = 15
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5]
@@ -16,6 +18,20 @@ interface TimeInterval {
 }
 
 class AgendamentoService {
+    private readonly schedulingLocks = new Map<string, Promise<void>>()
+
+    private async withSchedulingLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+        const previous = this.schedulingLocks.get(key) ?? Promise.resolve()
+        let release!: () => void
+        const current = new Promise<void>((resolve) => { release = resolve })
+        const queued = previous.then(() => current)
+        this.schedulingLocks.set(key, queued)
+        await previous
+        try { return await operation() } finally {
+            release()
+            if (this.schedulingLocks.get(key) === queued) this.schedulingLocks.delete(key)
+        }
+    }
     private parseDate(value: Date | string): Date {
         const date = new Date(value)
 
@@ -181,6 +197,10 @@ class AgendamentoService {
     }
 
     private async validateAvailability(profissionalId: string, servicoId: string, dataHora: Date, excludeId?: string) {
+        assertObjectId(profissionalId, "Profissional")
+        assertObjectId(servicoId, "Serviço")
+        if (dataHora.getTime() <= Date.now()) throw badRequest("Não é possível agendar no passado")
+        if (dataHora.getMinutes() % SLOT_STEP_MINUTES !== 0 || dataHora.getSeconds() !== 0 || dataHora.getMilliseconds() !== 0) throw badRequest("Horário deve respeitar intervalos de 15 minutos")
         const servico = await Servico.findById(servicoId)
         if (!servico) throw new Error("Serviço não encontrado")
 
@@ -220,6 +240,8 @@ class AgendamentoService {
         }
 
         const dataHora = this.parseDate(data.data_hora)
+        assertObjectId(data.animal, "Pet")
+        assertObjectId(data.cliente, "Cliente")
 
         const animal = await Animal.findOne({ _id: data.animal, cliente: data.cliente })
 
@@ -227,37 +249,39 @@ class AgendamentoService {
             throw new Error("Pet não encontrado para o usuário autenticado")
         }
 
-        await this.validateAvailability(data.profissional, data.servico, dataHora)
-
-        return Agendamento.create({
-            data_hora: dataHora,
-            status: "scheduled",
-            cliente: data.cliente,
-            animal: data.animal,
-            servico: data.servico,
-            profissional: data.profissional,
+        const lockKey = `${data.profissional}:${dataHora.toISOString().slice(0, 10)}`
+        return this.withSchedulingLock(lockKey, async () => {
+            await this.validateAvailability(data.profissional, data.servico, dataHora)
+            return Agendamento.create({ data_hora: dataHora, status: "scheduled", cliente: data.cliente, animal: data.animal, servico: data.servico, profissional: data.profissional })
         })
     }
 
     public async update(id: string, data: Partial<ICreateAgendamentoDTO> & { status?: "scheduled" | "canceled" }, user: { id: string; role: UserRole }) {
+        assertObjectId(id, "Agendamento")
         const existing = await Agendamento.findById(id)
         if (!existing) {
-            throw new Error("Agendamento não encontrado")
+            throw notFound("Agendamento não encontrado")
         }
 
         const canManage = user.role === "admin" || String(existing.cliente) === user.id || String(existing.profissional) === user.id
         if (!canManage) {
-            throw new Error("Você não tem permissão para editar este agendamento")
+            throw forbidden("Você não tem permissão para editar este agendamento")
         }
+
+        if (user.role === "profissional" && (data.animal !== undefined || data.servico !== undefined || data.profissional !== undefined || data.data_hora !== undefined)) throw forbidden("Profissional só pode alterar o status do agendamento")
+        if (data.status !== undefined && data.status !== "scheduled" && data.status !== "canceled") throw badRequest("Status inválido")
+        if (user.role !== "admin" && data.status === "scheduled" && existing.status === "canceled") throw forbidden("Somente administrador pode reativar agendamento")
 
         const nextProfessional = data.profissional ?? String(existing.profissional)
         const nextService = data.servico ?? String(existing.servico)
         const nextDateTime = data.data_hora ? this.parseDate(data.data_hora) : new Date(existing.data_hora)
 
-        await this.validateAvailability(nextProfessional, nextService, nextDateTime, id)
-
         const nextStatus = data.status ?? existing.status
+        const schedulingChanged = data.profissional !== undefined || data.servico !== undefined || data.data_hora !== undefined
+        if (schedulingChanged || (existing.status === "canceled" && nextStatus === "scheduled")) await this.validateAvailability(nextProfessional, nextService, nextDateTime, id)
         const nextAnimal = data.animal ?? String(existing.animal)
+        assertObjectId(nextAnimal, "Pet")
+        if (!await Animal.exists({ _id: nextAnimal, cliente: existing.cliente })) throw badRequest("Pet não pertence ao cliente do agendamento")
 
         return Agendamento.findByIdAndUpdate(
             id,
@@ -268,7 +292,7 @@ class AgendamentoService {
                 servico: nextService,
                 profissional: nextProfessional,
             },
-            { new: true }
+            { new: true, runValidators: true }
         )
     }
 
@@ -278,6 +302,8 @@ class AgendamentoService {
         }
 
         const date = this.parseDate(query.date)
+        assertObjectId(query.profissionalId, "Profissional")
+        assertObjectId(query.servicoId, "Serviço")
         const servico = await Servico.findById(query.servicoId)
         if (!servico) throw new Error("Serviço não encontrado")
 
@@ -313,7 +339,7 @@ class AgendamentoService {
             slots.push({
                 time: `${String(slotStart.getHours()).padStart(2, "0")}:${String(slotStart.getMinutes()).padStart(2, "0")}`,
                 datetime: slotStart.toISOString(),
-                available: freeIntervals.some((interval) => slot.start >= interval.start && slot.end <= interval.end),
+                available: slotStart.getTime() > Date.now() && freeIntervals.some((interval) => slot.start >= interval.start && slot.end <= interval.end),
             })
         }
 
@@ -332,8 +358,8 @@ class AgendamentoService {
             throw new Error("Profissional, serviço e mês são obrigatórios")
         }
 
-        const [year, month] = query.month.split("-").map(Number)
-        if (!year || !month) throw new Error("Mês inválido")
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(query.month)) throw badRequest("Mês inválido")
+        const [year, month] = query.month.split("-").map(Number) as [number, number]
 
         const lastDay = new Date(year, month, 0).getDate()
         const days = [] as Array<{ date: string; available: boolean; slotsCount: number; workingDay: boolean }>
@@ -372,11 +398,12 @@ class AgendamentoService {
     }
 
     public async cancel(id: string, user: { id: string; role: UserRole }) {
-        const filter = user.role === "admin" ? { _id: id, status: "scheduled" } : { _id: id, cliente: user.id, status: "scheduled" }
+        assertObjectId(id, "Agendamento")
+        const filter = user.role === "admin" ? { _id: id, status: "scheduled" } : user.role === "profissional" ? { _id: id, profissional: user.id, status: "scheduled" } : { _id: id, cliente: user.id, status: "scheduled" }
         const agendamento = await Agendamento.findOneAndUpdate(filter, { status: "canceled" }, { new: true })
 
         if (!agendamento) {
-            throw new Error("Agendamento não encontrado")
+            throw notFound("Agendamento não encontrado")
         }
 
         return agendamento

@@ -40,6 +40,8 @@ const agendamentoSchema = new Schema<IAgendamento>(
     { timestamps: true }
 )
 
+agendamentoSchema.index({ profissional: 1, status: 1, data_hora: 1 })
+
 const Agendamento = mongoose.model<IAgendamento>("Agendamento", agendamentoSchema)
 
 export default Agendamento

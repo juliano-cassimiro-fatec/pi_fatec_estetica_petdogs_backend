@@ -43,16 +43,19 @@ const profissionalSchema = new Schema<IProfissional>(
         dias_trabalho: {
             type: [Number],
             default: [1, 2, 3, 4, 5],
+            validate: { validator: (days: number[]) => days.every((day) => Number.isInteger(day) && day >= 0 && day <= 6), message: "Dias de trabalho inválidos" },
         },
         horario_inicio: {
             type: String,
             default: "08:00",
             trim: true,
+            match: /^(?:[01]\d|2[0-3]):[0-5]\d$/,
         },
         horario_fim: {
             type: String,
             default: "18:00",
             trim: true,
+            match: /^(?:[01]\d|2[0-3]):[0-5]\d$/,
         },
         almoco_inicio: {
             type: String,

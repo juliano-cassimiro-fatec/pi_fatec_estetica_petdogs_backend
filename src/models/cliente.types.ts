@@ -7,8 +7,8 @@ export interface ICliente {
     senha: string
     resetPasswordToken?: string
     resetPasswordExpires?: Date
-    createdAt: string
-    updatedAt?: string
+    createdAt: Date
+    updatedAt?: Date
 }
 
 export interface ICreateClienteDTO {
@@ -25,6 +25,4 @@ export interface IUpdateClienteDTO {
     telefone?: string
     foto?: string
     senha?: string
-    resetPasswordToken?: string
-    resetPasswordExpires?: Date
 }

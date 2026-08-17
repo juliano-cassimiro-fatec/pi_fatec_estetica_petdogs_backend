@@ -2,12 +2,11 @@ import crypto from "crypto"
 import Cliente from "../models/cliente.model.js"
 import Profissional from "../models/profissional.model.js"
 import type { IForgotPasswordDTO, ILoginDTO, IRegisterDTO, IResetPasswordDTO, UserRole } from "../models/auth.types.js"
+import { badRequest } from "../errors/app-error.js"
+import { env } from "../config/env.js"
+import { assertEmail } from "../utils/validation.js"
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "pet-shop-development-secret"
 const TOKEN_EXPIRATION_SECONDS = 60 * 60 * 24
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@petshop.com"
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "admin123"
-const ADMIN_NAME = process.env.ADMIN_NAME ?? "Administrador"
 
 function derivePassword(password: string, salt: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
@@ -16,13 +15,9 @@ function derivePassword(password: string, salt: string): Promise<Buffer> {
 }
 
 class AuthService {
-    private validateEmail(email: string): boolean {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    }
-
     public assertPassword(password: string): void {
         if (!password || password.length < 6) {
-            throw new Error("A senha deve ter pelo menos 6 caracteres")
+            throw badRequest("A senha deve ter pelo menos 6 caracteres")
         }
     }
 
@@ -56,7 +51,7 @@ class AuthService {
             exp: Math.floor(Date.now() / 1000) + TOKEN_EXPIRATION_SECONDS,
         }
         const unsignedToken = `${this.base64Url(JSON.stringify(header))}.${this.base64Url(JSON.stringify(body))}`
-        const signature = crypto.createHmac("sha256", JWT_SECRET).update(unsignedToken).digest("base64url")
+        const signature = crypto.createHmac("sha256", env("JWT_SECRET")).update(unsignedToken).digest("base64url")
 
         return `${unsignedToken}.${signature}`
     }
@@ -68,14 +63,14 @@ class AuthService {
         }
     }
 
-    public verifyToken(token: string): { id: string; email: string; name: string; role: UserRole } {
+    public async verifyToken(token: string): Promise<{ id: string; email: string; name: string; role: UserRole }> {
         const [header, payload, signature] = token.split(".")
 
         if (!header || !payload || !signature) {
             throw new Error("Token inválido")
         }
 
-        const expectedSignature = crypto.createHmac("sha256", JWT_SECRET).update(`${header}.${payload}`).digest("base64url")
+        const expectedSignature = crypto.createHmac("sha256", env("JWT_SECRET")).update(`${header}.${payload}`).digest("base64url")
 
         const receivedSignature = Buffer.from(signature)
         const validSignature = Buffer.from(expectedSignature)
@@ -83,6 +78,8 @@ class AuthService {
             throw new Error("Token inválido")
         }
 
+        const decodedHeader: unknown = JSON.parse(Buffer.from(header, "base64url").toString("utf8"))
+        if (typeof decodedHeader !== "object" || decodedHeader === null || !("alg" in decodedHeader) || decodedHeader.alg !== "HS256") throw new Error("Token inválido")
         const decodedPayload = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
             sub?: string
             email?: string
@@ -91,7 +88,7 @@ class AuthService {
             exp?: number
         }
 
-        if (!decodedPayload.sub || !decodedPayload.email || !decodedPayload.name || !decodedPayload.exp) {
+        if (!decodedPayload.sub || !decodedPayload.email || !decodedPayload.name || !decodedPayload.exp || !decodedPayload.role || !["admin", "profissional", "cliente"].includes(decodedPayload.role)) {
             throw new Error("Token inválido")
         }
 
@@ -99,11 +96,18 @@ class AuthService {
             throw new Error("Token expirado")
         }
 
+        if (decodedPayload.role !== "admin") {
+            const exists = decodedPayload.role === "profissional"
+                ? await Profissional.exists({ _id: decodedPayload.sub })
+                : await Cliente.exists({ _id: decodedPayload.sub })
+            if (!exists) throw new Error("Usuário não encontrado")
+        } else if (decodedPayload.sub !== "admin" || decodedPayload.email !== env("ADMIN_EMAIL")) throw new Error("Token inválido")
+
         return {
             id: decodedPayload.sub,
             email: decodedPayload.email,
             name: decodedPayload.name,
-            role: decodedPayload.role ?? "cliente",
+            role: decodedPayload.role,
         }
     }
 
@@ -116,16 +120,14 @@ class AuthService {
             throw new Error("Nome, e-mail e senha são obrigatórios")
         }
 
-        if (!this.validateEmail(email)) {
-            throw new Error("E-mail inválido")
-        }
+        assertEmail(email)
 
         this.assertPassword(password)
 
         const emailInUse = await Cliente.findOne({ email })
         const professionalEmailInUse = await Profissional.findOne({ email })
 
-        if (emailInUse || professionalEmailInUse || email === ADMIN_EMAIL) {
+        if (emailInUse || professionalEmailInUse || email === env("ADMIN_EMAIL").toLowerCase()) {
             throw new Error("E-mail já cadastrado")
         }
 
@@ -151,8 +153,8 @@ class AuthService {
             throw new Error("E-mail e senha são obrigatórios")
         }
 
-        if (email === ADMIN_EMAIL && data.password === ADMIN_PASSWORD) {
-            return this.buildSession({ id: "admin", name: ADMIN_NAME, email: ADMIN_EMAIL, role: "admin" })
+        if (email === env("ADMIN_EMAIL").toLowerCase() && data.password === env("ADMIN_PASSWORD")) {
+            return this.buildSession({ id: "admin", name: env("ADMIN_NAME"), email: env("ADMIN_EMAIL"), role: "admin" })
         }
 
         const profissional = await Profissional.findOne({ email }).select("+senha")
@@ -173,15 +175,13 @@ class AuthService {
     public async forgotPassword(data: IForgotPasswordDTO) {
         const email = data.email?.trim().toLowerCase()
 
-        if (!email || !this.validateEmail(email)) {
-            throw new Error("E-mail inválido")
-        }
+        if (!email) throw badRequest("E-mail inválido")
+        assertEmail(email)
 
         const cliente = await Cliente.findOne({ email })
 
-        if (!cliente) {
-            return { message: "Se o e-mail existir, um token de recuperação será gerado" }
-        }
+        const genericResponse = { message: "Se o e-mail existir, as instruções de recuperação serão enviadas" }
+        if (!cliente) return genericResponse
 
         const plainToken = crypto.randomBytes(32).toString("hex")
         const resetPasswordToken = crypto.createHash("sha256").update(plainToken).digest("hex")
@@ -191,10 +191,12 @@ class AuthService {
             resetPasswordExpires: new Date(Date.now() + 1000 * 60 * 30),
         })
 
-        return {
-            message: "Token de recuperação gerado com sucesso",
-            resetToken: plainToken,
+        const webhook = process.env.PASSWORD_RESET_WEBHOOK
+        if (webhook) {
+            void fetch(webhook, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, token: plainToken }) })
+                .catch((error: unknown) => console.error("Falha ao entregar recuperação de senha", error))
         }
+        return genericResponse
     }
 
     public async resetPassword(data: IResetPasswordDTO) {

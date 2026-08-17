@@ -1,5 +1,8 @@
 import Servico from "../models/servico.model.js"
 import type { ICreateServicoDTO, IUpdateServicoDTO } from "../models/servico.types.js"
+import { notFound, badRequest, conflict } from "../errors/app-error.js"
+import { assertObjectId } from "../utils/validation.js"
+import Agendamento from "../models/agendamento.model.js"
 
 class ServicoService {
     private validate(data: ICreateServicoDTO): void {
@@ -36,22 +39,38 @@ class ServicoService {
     }
 
     public async findById(id: string) {
-        return Servico.findById(id)
+        assertObjectId(id)
+        const servico = await Servico.findById(id)
+        if (!servico) throw notFound("Serviço não encontrado")
+        return servico
     }
 
     public async delete(id: string) {
-        return Servico.findByIdAndDelete(id)
+        assertObjectId(id)
+        if (await Agendamento.exists({ servico: id })) throw conflict("Serviço possui agendamentos e não pode ser removido")
+        const servico = await Servico.findByIdAndDelete(id)
+        if (!servico) throw notFound("Serviço não encontrado")
+        return servico
     }
 
     public async update(id: string, data: IUpdateServicoDTO) {
+        assertObjectId(id)
         const payload: IUpdateServicoDTO = {}
 
         if (data.name !== undefined) payload.name = data.name.trim()
         if (data.descricao !== undefined) payload.descricao = data.descricao.trim()
-        if (data.duracao_min !== undefined) payload.duracao_min = Number(data.duracao_min)
-        if (data.preco !== undefined) payload.preco = Number(data.preco)
+        if (data.duracao_min !== undefined) {
+            if (!Number.isFinite(Number(data.duracao_min)) || Number(data.duracao_min) <= 0) throw badRequest("Duração inválida")
+            payload.duracao_min = Number(data.duracao_min)
+        }
+        if (data.preco !== undefined) {
+            if (!Number.isFinite(Number(data.preco)) || Number(data.preco) < 0) throw badRequest("Preço inválido")
+            payload.preco = Number(data.preco)
+        }
 
-        return Servico.findByIdAndUpdate(id, payload, { new: true })
+        const servico = await Servico.findByIdAndUpdate(id, payload, { new: true, runValidators: true })
+        if (!servico) throw notFound("Serviço não encontrado")
+        return servico
     }
 }
 

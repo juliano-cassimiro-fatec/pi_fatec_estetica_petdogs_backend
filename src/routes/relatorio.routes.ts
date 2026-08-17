@@ -1,12 +1,11 @@
 import { Router } from "express"
 import relatorioController from "../controllers/relatorio.controller.js"
+import { ensureAuthenticated } from "../middlewares/auth.middleware.js"
+import { ensureRoles } from "../middlewares/authorization.middleware.js"
 
 const relatorioRoutes = Router()
+relatorioRoutes.use(ensureAuthenticated, ensureRoles(["admin"]))
 
-relatorioRoutes.post("/", relatorioController.create)
 relatorioRoutes.get("/", relatorioController.getAll)
-relatorioRoutes.get("/:id", relatorioController.getById)
-relatorioRoutes.put("/:id", relatorioController.update)
-relatorioRoutes.delete("/:id", relatorioController.delete)
 
 export default relatorioRoutes

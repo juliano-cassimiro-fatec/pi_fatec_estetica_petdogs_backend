@@ -2,6 +2,10 @@ import authService from "./auth.service.js"
 import Cliente from "../models/cliente.model.js"
 import Profissional from "../models/profissional.model.js"
 import type { ICreateProfissionaleDTO, IUpdateProfissionalDTO } from "../models/profissional.types.js"
+import { assertEmail, assertObjectId } from "../utils/validation.js"
+import { badRequest, conflict, notFound } from "../errors/app-error.js"
+import { env } from "../config/env.js"
+import Agendamento from "../models/agendamento.model.js"
 
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5]
 const DEFAULT_WORKING_START = "08:00"
@@ -37,7 +41,7 @@ class ProfissionalService {
         }
 
         const normalized = value.trim()
-        if (/^\d{2}:\d{2}$/.test(normalized)) {
+        if (/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(normalized)) {
             return normalized
         }
 
@@ -46,7 +50,7 @@ class ProfissionalService {
             return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
         }
 
-        return fallback
+        throw badRequest("Horário inválido")
     }
 
     private resolveWorkingConfig(data: ICreateProfissionaleDTO | IUpdateProfissionalDTO) {
@@ -69,11 +73,12 @@ class ProfissionalService {
         }
 
         authService.assertPassword(senha)
+        assertEmail(email)
 
         const emailInUse = await Profissional.findOne({ email })
         const clientEmailInUse = await Cliente.findOne({ email })
 
-        if (emailInUse || clientEmailInUse) {
+        if (emailInUse || clientEmailInUse || email === env("ADMIN_EMAIL").toLowerCase()) {
             throw new Error("E-mail já cadastrado")
         }
 
@@ -88,6 +93,8 @@ class ProfissionalService {
         }
 
         const workingConfig = this.resolveWorkingConfig(data)
+        if (workingConfig.horario_inicio >= workingConfig.horario_fim) throw badRequest("Horário inicial deve ser anterior ao final")
+        if ((workingConfig.almoco_inicio && !workingConfig.almoco_fim) || (!workingConfig.almoco_inicio && workingConfig.almoco_fim)) throw badRequest("Intervalo de almoço incompleto")
         payload.dias_trabalho = workingConfig.dias_trabalho
         payload.horario_inicio = workingConfig.horario_inicio
         payload.horario_fim = workingConfig.horario_fim
@@ -105,14 +112,22 @@ class ProfissionalService {
     }
 
     async getById(id: string) {
-        return Profissional.findById(id)
+        assertObjectId(id, "Profissional")
+        const profissional = await Profissional.findById(id)
+        if (!profissional) throw notFound("Profissional não encontrado")
+        return profissional
     }
 
     async update(id: string, data: IUpdateProfissionalDTO) {
+        assertObjectId(id, "Profissional")
         const payload: Record<string, unknown> = {}
 
         if (data.name !== undefined) payload.name = data.name.trim()
-        if (data.email !== undefined) payload.email = data.email.trim().toLowerCase()
+        if (data.email !== undefined) {
+            const email = data.email.trim().toLowerCase(); assertEmail(email)
+            if (email === env("ADMIN_EMAIL").toLowerCase() || await Cliente.exists({ email })) throw conflict("E-mail já cadastrado")
+            payload.email = email
+        }
         if (data.telefone !== undefined) payload.telefone = data.telefone.trim()
         if (data.foto !== undefined) payload.foto = data.foto.trim()
         if (data.especialidade !== undefined) payload.especialidade = data.especialidade.trim()
@@ -128,11 +143,17 @@ class ProfissionalService {
             payload.senha = await authService.hashPassword(data.senha)
         }
 
-        return Profissional.findByIdAndUpdate(id, payload, { new: true })
+        const profissional = await Profissional.findByIdAndUpdate(id, payload, { new: true, runValidators: true })
+        if (!profissional) throw notFound("Profissional não encontrado")
+        return profissional
     }
 
     async delete(id: string) {
-        return Profissional.findByIdAndDelete(id)
+        assertObjectId(id, "Profissional")
+        if (await Agendamento.exists({ profissional: id })) throw conflict("Profissional possui agendamentos e não pode ser removido")
+        const profissional = await Profissional.findByIdAndDelete(id)
+        if (!profissional) throw notFound("Profissional não encontrado")
+        return profissional
     }
 }
 

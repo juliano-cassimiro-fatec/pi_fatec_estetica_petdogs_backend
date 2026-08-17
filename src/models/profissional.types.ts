@@ -13,8 +13,8 @@ export interface IProfissional {
     almoco_fim?: string
     disponibilidade_inicio?: Date
     disponibilidade_fim?: Date
-    createdAt: string
-    updatedAt?: string
+    createdAt: Date
+    updatedAt?: Date
 }
 
 export interface ICreateProfissionaleDTO {

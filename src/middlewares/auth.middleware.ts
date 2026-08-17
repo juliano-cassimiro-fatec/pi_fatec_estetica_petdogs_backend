@@ -2,7 +2,7 @@ import type { NextFunction, Response } from "express"
 import authService from "../services/auth.service.js"
 import type { AuthenticatedRequest } from "./request.types.js"
 
-export function ensureAuthenticated(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function ensureAuthenticated(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     const authorization = req.headers.authorization
 
     if (!authorization?.startsWith("Bearer ")) {
@@ -11,7 +11,7 @@ export function ensureAuthenticated(req: AuthenticatedRequest, res: Response, ne
 
     try {
         const token = authorization.replace("Bearer ", "")
-        req.user = authService.verifyToken(token)
+        req.user = await authService.verifyToken(token)
 
         return next()
     } catch (error) {
