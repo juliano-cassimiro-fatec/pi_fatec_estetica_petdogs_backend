@@ -1,6 +1,7 @@
 import { Router } from "express"
 import servicoController from "../controllers/servico.controller.js"
-import { ensureAuthenticated, ensureRoles } from "../middlewares/auth.middleware.js"
+import { ensureAuthenticated } from "../middlewares/auth.middleware.js"
+import { ensureRoles } from "../middlewares/authorization.middleware.js"
 
 const servicoRoutes = Router()
 

@@ -1,12 +1,13 @@
 {
   "name": "dev2",
   "version": "1.0.0",
-  "description": "��#\u0000 \u0000D\u0000e\u0000v\u00002\u0000\r\u0000 \u0000",
-  "main": "index.js",
+  "description": "Backend REST para estética pet com clientes, profissionais, pets, serviços e agendamentos.",
+  "main": "dist/server.js",
   "scripts": {
     "test": "npm run build",
     "dev": "tsx --watch --env-file=.env src/server.ts",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js"
   },
   "repository": {
     "type": "git",

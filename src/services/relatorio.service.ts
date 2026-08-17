@@ -4,48 +4,23 @@ import type { ICreateRelatorioDTO, IUpdateRelatorioDTO } from "../models/relator
 class RelatorioService {
 
     async create(data: ICreateRelatorioDTO) {
-        try {
-            return await Relatorio.create(data)
-        } catch (e) {
-            console.log(e)
-            throw e
-        }
+        return await Relatorio.create(data)
     }
 
     async getAll() {
-        try {
-            return await Relatorio.find()
-        } catch (e) {
-            console.log(e)
-            throw e
-        }
+        return await Relatorio.find()
     }
 
     async getById(id: string) {
-        try {
-            return await Relatorio.findById(id)
-        } catch (e) {
-            console.log(e)
-            throw e
-        }
+        return await Relatorio.findById(id)
     }
 
     async update(id: string, data: IUpdateRelatorioDTO) {
-        try {
-            return await Relatorio.findByIdAndUpdate(id, data, { new: true })
-        } catch (e) {
-            console.log(e)
-            throw e
-        }
+        return await Relatorio.findByIdAndUpdate(id, data, { new: true })
     }
 
     async delete(id: string) {
-        try {
-            return await Relatorio.findByIdAndDelete(id)
-        } catch (e) {
-            console.log(e)
-            throw e
-        }
+        return await Relatorio.findByIdAndDelete(id)
     }
 
 }

@@ -1,7 +1,8 @@
 import express from "express"
 import type { Express } from "express"
 import cors from "cors";
-import routes from "../routes/index.js";
+import routes from "../routes/index.js"
+import { setupSwagger } from "./swagger.js"
 
 class App {
   public server: Express
@@ -9,6 +10,7 @@ class App {
   constructor() {
     this.server = express()
     this.middlewares()
+    setupSwagger(this.server)
     this.routes()
   }
 

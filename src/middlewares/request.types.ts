@@ -1,6 +1,7 @@
 import type { Request } from "express"
 
 export interface AuthenticatedRequest extends Request {
+    targetId?: string
     user?: {
         id: string
         email: string

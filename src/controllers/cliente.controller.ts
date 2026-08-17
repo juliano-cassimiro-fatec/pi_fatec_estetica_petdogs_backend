@@ -33,7 +33,7 @@ class ClienteController {
 
     async update(req: AuthenticatedRequest, res: Response) {
         try {
-            const id = req.user?.role === "cliente" ? req.user.id : String(req.params.id ?? "")
+            const id = req.targetId ?? ""
             const { name, email, telefone, foto, senha, password } = req.body ?? {}
             const cliente = await clienteService.update(id, { name, email, telefone, foto, senha: senha ?? password })
 
