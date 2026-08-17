@@ -1,6 +1,9 @@
 import Animal from "../models/animal.model.js"
 import type { UserRole } from "../models/auth.types.js"
 import type { ICreateAnimalDTO, IUpdateAnimalDTO } from "../models/animal.types.js"
+import { assertObjectId } from "../utils/validation.js"
+import Agendamento from "../models/agendamento.model.js"
+import { conflict } from "../errors/app-error.js"
 
 class AnimalService {
     private validateCreate(data: ICreateAnimalDTO): void {
@@ -11,6 +14,7 @@ class AnimalService {
         if (!Number.isFinite(Number(data.idade)) || Number(data.idade) < 0) {
             throw new Error("Idade inválida")
         }
+        if (!["pequeno", "medio", "grande"].includes(data.porte.trim().toLowerCase())) throw new Error("Porte inválido")
     }
 
     private buildScope(user: { id: string; role: UserRole }, id?: string) {
@@ -22,6 +26,7 @@ class AnimalService {
 
     public async create(data: ICreateAnimalDTO) {
         this.validateCreate(data)
+        assertObjectId(data.cliente, "Tutor")
 
         const payload: Record<string, string | number> = {
             nome: data.nome.trim(),
@@ -41,6 +46,7 @@ class AnimalService {
     }
 
     public async getById(id: string, user: { id: string; role: UserRole }) {
+        assertObjectId(id, "Pet")
         const animal = await Animal.findOne(this.buildScope(user, id)).populate("cliente", "name email telefone foto")
 
         if (!animal) {
@@ -51,11 +57,16 @@ class AnimalService {
     }
 
     public async update(id: string, user: { id: string; role: UserRole }, data: IUpdateAnimalDTO & { cliente?: string }) {
+        assertObjectId(id, "Pet")
         const payload: IUpdateAnimalDTO & { cliente?: string } = {}
 
         if (data.nome !== undefined) payload.nome = data.nome.trim()
         if (data.raca !== undefined) payload.raca = data.raca.trim()
-        if (data.porte !== undefined) payload.porte = data.porte.trim().toLowerCase()
+        if (data.porte !== undefined) {
+            const porte = data.porte.trim().toLowerCase()
+            if (!["pequeno", "medio", "grande"].includes(porte)) throw new Error("Porte inválido")
+            payload.porte = porte as NonNullable<IUpdateAnimalDTO["porte"]>
+        }
         if (data.foto !== undefined) payload.foto = data.foto.trim()
         if (data.cliente !== undefined && user.role === "admin") payload.cliente = data.cliente
         if (data.idade !== undefined) {
@@ -65,7 +76,8 @@ class AnimalService {
             payload.idade = Number(data.idade)
         }
 
-        const animal = await Animal.findOneAndUpdate(this.buildScope(user, id), payload, { new: true })
+        if (payload.cliente) assertObjectId(payload.cliente, "Tutor")
+        const animal = await Animal.findOneAndUpdate(this.buildScope(user, id), payload, { new: true, runValidators: true })
 
         if (!animal) {
             throw new Error("Pet não encontrado")
@@ -75,6 +87,8 @@ class AnimalService {
     }
 
     public async delete(id: string, user: { id: string; role: UserRole }) {
+        assertObjectId(id, "Pet")
+        if (await Agendamento.exists({ animal: id })) throw conflict("Pet possui agendamentos e não pode ser removido")
         const animal = await Animal.findOneAndDelete(this.buildScope(user, id))
 
         if (!animal) {

@@ -3,8 +3,8 @@ export interface IServico {
     descricao: string
     duracao_min: number
     preco: number
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date
+    updatedAt?: Date
 }
 
 export interface ICreateServicoDTO {

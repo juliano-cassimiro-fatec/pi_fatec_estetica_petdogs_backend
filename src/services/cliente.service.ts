@@ -1,6 +1,12 @@
 import authService from "./auth.service.js"
 import Cliente from "../models/cliente.model.js"
 import type { ICreateClienteDTO, IUpdateClienteDTO } from "../models/cliente.types.js"
+import Profissional from "../models/profissional.model.js"
+import { env } from "../config/env.js"
+import { notFound, conflict } from "../errors/app-error.js"
+import { assertEmail, assertObjectId } from "../utils/validation.js"
+import Animal from "../models/animal.model.js"
+import Agendamento from "../models/agendamento.model.js"
 
 class ClienteService {
     async create(data: ICreateClienteDTO) {
@@ -9,6 +15,8 @@ class ClienteService {
         }
 
         authService.assertPassword(data.senha)
+        assertEmail(data.email.trim())
+        if (data.email.trim().toLowerCase() === env("ADMIN_EMAIL").toLowerCase() || await Profissional.exists({ email: data.email.trim().toLowerCase() })) throw conflict("E-mail já cadastrado")
 
         const payload: Record<string, string> = {
             name: data.name.trim(),
@@ -28,13 +36,22 @@ class ClienteService {
     }
 
     async getById(id: string) {
-        return Cliente.findById(id)
+        assertObjectId(id)
+        const cliente = await Cliente.findById(id)
+        if (!cliente) throw notFound("Cliente não encontrado")
+        return cliente
     }
 
     async update(id: string, data: IUpdateClienteDTO) {
+        assertObjectId(id)
         const payload: IUpdateClienteDTO = {}
         if (data.name !== undefined) payload.name = data.name.trim()
-        if (data.email !== undefined) payload.email = data.email.trim().toLowerCase()
+        if (data.email !== undefined) {
+            assertEmail(data.email.trim())
+            const email = data.email.trim().toLowerCase()
+            if (email === env("ADMIN_EMAIL").toLowerCase() || await Profissional.exists({ email })) throw conflict("E-mail já cadastrado")
+            payload.email = email
+        }
         if (data.telefone !== undefined) payload.telefone = data.telefone.trim()
         if (data.foto !== undefined) payload.foto = data.foto.trim()
         if (data.senha !== undefined && data.senha.trim()) {
@@ -42,11 +59,17 @@ class ClienteService {
             payload.senha = await authService.hashPassword(data.senha)
         }
 
-        return Cliente.findByIdAndUpdate(id, payload, { new: true })
+        const cliente = await Cliente.findByIdAndUpdate(id, payload, { new: true, runValidators: true })
+        if (!cliente) throw notFound("Cliente não encontrado")
+        return cliente
     }
 
     async delete(id: string) {
-        return Cliente.findByIdAndDelete(id)
+        assertObjectId(id)
+        if (await Animal.exists({ cliente: id }) || await Agendamento.exists({ cliente: id })) throw conflict("Cliente possui pets ou agendamentos e não pode ser removido")
+        const cliente = await Cliente.findByIdAndDelete(id)
+        if (!cliente) throw notFound("Cliente não encontrado")
+        return cliente
     }
 }
 

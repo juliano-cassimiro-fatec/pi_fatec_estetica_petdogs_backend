@@ -9,8 +9,8 @@ export interface IAgendamento {
     animal: Types.ObjectId | string
     servico: Types.ObjectId | string
     profissional: Types.ObjectId | string
-    createdAt: string
-    updatedAt?: string
+    createdAt: Date
+    updatedAt?: Date
 }
 
 export interface ICreateAgendamentoDTO {

@@ -1,28 +1,18 @@
-import Relatorio from "../models/relatorio.model.js"
-import type { ICreateRelatorioDTO, IUpdateRelatorioDTO } from "../models/relatorio.types.js"
+import Agendamento from "../models/agendamento.model.js"
+import Animal from "../models/animal.model.js"
+import Cliente from "../models/cliente.model.js"
+import Servico from "../models/servico.model.js"
 
 class RelatorioService {
-
-    async create(data: ICreateRelatorioDTO) {
-        return Relatorio.create(data)
-    }
-
     async getAll() {
-        return Relatorio.find()
+        const [total_clientes, total_animais, total_servicos, total_cancelamentos] = await Promise.all([
+            Cliente.countDocuments(),
+            Animal.countDocuments(),
+            Servico.countDocuments(),
+            Agendamento.countDocuments({ status: "canceled" }),
+        ])
+        return { total_clientes, total_animais, total_servicos, total_cancelamentos, total_faltas: 0 }
     }
-
-    async getById(id: string) {
-        return Relatorio.findById(id)
-    }
-
-    async update(id: string, data: IUpdateRelatorioDTO) {
-        return Relatorio.findByIdAndUpdate(id, data, { new: true })
-    }
-
-    async delete(id: string) {
-        return Relatorio.findByIdAndDelete(id)
-    }
-
 }
 
 export default new RelatorioService()
