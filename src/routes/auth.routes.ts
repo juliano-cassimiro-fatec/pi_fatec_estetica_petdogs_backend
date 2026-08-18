@@ -8,6 +8,8 @@ const authLimiter = rateLimit(10, 15 * 60 * 1000)
 
 authRoutes.get("/me", ensureAuthenticated, authController.me)
 authRoutes.post("/register", authLimiter, authController.register)
+authRoutes.post("/otp/send", authLimiter, authController.sendOtp)
+authRoutes.post("/otp/verify", authLimiter, authController.verifyOtp)
 authRoutes.post("/login", authLimiter, authController.login)
 authRoutes.post("/forgot-password", authLimiter, authController.forgotPassword)
 authRoutes.post("/reset-password", authLimiter, authController.resetPassword)

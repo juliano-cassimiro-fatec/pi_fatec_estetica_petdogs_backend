@@ -44,6 +44,9 @@ JWT_SECRET=
 ADMIN_EMAIL=
 ADMIN_PASSWORD=
 ADMIN_NAME=
+ONESIGNAL_APP_ID=
+ONESIGNAL_API_KEY=
+OTP_VERIFICATION_SECRET=
 FRONTEND_URL=
 PORT=
 ```
@@ -53,10 +56,12 @@ Observações:
 - `MONGO_URI` é obrigatória para conectar ao MongoDB.
 - `JWT_SECRET` deve ser definido em produção.
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `ADMIN_NAME` configuram o login administrativo.
+- `ONESIGNAL_APP_ID` e `ONESIGNAL_API_KEY` identificam a aplicação e autorizam o envio transacional de OTP por e-mail. A chave deve existir somente no backend.
+- `OTP_VERIFICATION_SECRET` assina a comprovação temporária exigida pelo cadastro e deve ter pelo menos 32 caracteres.
 - `FRONTEND_URL` controla a origem aceita pelo CORS; quando não informado, usa `http://localhost:5173`.
 - `PORT` define a porta HTTP; quando não informado, usa `3000`.
 - `PASSWORD_RESET_WEBHOOK` recebe, por POST servidor-a-servidor, o e-mail e token de recuperação; o token nunca é devolvido pela API pública.
-- A aplicação recusa iniciar sem banco, segredo JWT e credenciais administrativas; o segredo deve ter 32 caracteres e a senha administrativa, 12.
+- A aplicação recusa iniciar sem banco, segredos JWT/OTP, credenciais administrativas e configuração OneSignal; os segredos devem ter 32 caracteres e a senha administrativa, 12.
 
 ## Executar
 
