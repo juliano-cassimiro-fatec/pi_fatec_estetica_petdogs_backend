@@ -21,6 +21,7 @@ src/
 ├── app/              # Configuração do Express e Swagger
 ├── config/           # Configuração de banco de dados
 ├── controllers/      # Entrada HTTP: lê request, chama service e responde
+├── middlewares/      # Autenticação, autorização e tratamento central de erros
 ├── models/           # Schemas Mongoose e tipos
 ├── routes/           # Rotas da API
 ├── services/         # Regras de negócio
@@ -107,6 +108,32 @@ O JSON OpenAPI fica disponível em:
 ```text
 /api/docs/openapi.json
 ```
+
+No Swagger, use o botão **Authorize** para informar o token JWT no formato Bearer.
+
+## Autenticação
+
+A autenticação usa token JWT assinado com `JWT_SECRET`. Após login ou cadastro, a API retorna um token que deve ser enviado no header:
+
+```text
+Authorization: Bearer <token>
+```
+
+## Estrutura de autorização
+
+```text
+Authentication
+→ identifica quem é o usuário pelo token JWT
+
+Authorization
+→ verifica se o papel do usuário permite executar a ação
+```
+
+Papéis usados pela API:
+
+- `admin`: gerencia clientes, profissionais e serviços.
+- `profissional`: acessa seus agendamentos e atualiza o próprio perfil.
+- `cliente`: gerencia seus pets, perfil e agendamentos.
 
 ## Rotas principais
 
