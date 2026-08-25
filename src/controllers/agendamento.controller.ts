@@ -1,6 +1,6 @@
 import type { Response } from "express"
 import agendamentoService from "../services/agendamento.service.js"
-import type { AuthenticatedRequest } from "../models/request.types.js"
+import type { AuthenticatedRequest } from "../middlewares/request.types.js"
 
 class AgendamentoController {
     public async availability(req: AuthenticatedRequest, res: Response): Promise<Response> {
