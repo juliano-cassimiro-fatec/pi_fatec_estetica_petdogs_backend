@@ -6,6 +6,7 @@ import { assertEmail, assertObjectId } from "../utils/validation.js"
 import { badRequest, conflict, notFound } from "../errors/app-error.js"
 import { env } from "../config/env.js"
 import Agendamento from "../models/agendamento.model.js"
+import { storeImageInput } from "./upload.service.js"
 
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5]
 const DEFAULT_WORKING_START = "08:00"
@@ -102,7 +103,7 @@ class ProfissionalService {
         if (workingConfig.almoco_fim) payload.almoco_fim = workingConfig.almoco_fim
 
         if (data.telefone?.trim()) payload.telefone = data.telefone.trim()
-        if (data.foto?.trim()) payload.foto = data.foto.trim()
+        if (data.foto?.trim()) payload.foto = await storeImageInput(data.foto)
 
         return Profissional.create(payload)
     }
@@ -129,7 +130,7 @@ class ProfissionalService {
             payload.email = email
         }
         if (data.telefone !== undefined) payload.telefone = data.telefone.trim()
-        if (data.foto !== undefined) payload.foto = data.foto.trim()
+        if (data.foto?.trim()) payload.foto = await storeImageInput(data.foto)
         if (data.especialidade !== undefined) payload.especialidade = data.especialidade.trim()
         if (data.dias_trabalho !== undefined) payload.dias_trabalho = this.parseDays(data.dias_trabalho)
         if (data.horario_inicio !== undefined) payload.horario_inicio = this.parseTime(data.horario_inicio, DEFAULT_WORKING_START)

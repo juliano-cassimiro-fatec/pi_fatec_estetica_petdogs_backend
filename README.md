@@ -49,6 +49,7 @@ ONESIGNAL_API_KEY=
 OTP_VERIFICATION_SECRET=
 FRONTEND_URL=
 PORT=
+UPLOAD_DIR=./uploads
 ```
 
 Observações:
@@ -60,10 +61,24 @@ Observações:
 - `OTP_VERIFICATION_SECRET` assina a comprovação temporária exigida pelo cadastro e deve ter pelo menos 32 caracteres.
 - `FRONTEND_URL` controla a origem aceita pelo CORS; quando não informado, usa `http://localhost:5173`.
 - `PORT` define a porta HTTP; quando não informado, usa `3000`.
+- `UPLOAD_DIR` é obrigatório e define o diretório local onde as imagens serão armazenadas.
 - `PASSWORD_RESET_WEBHOOK` recebe, por POST servidor-a-servidor, o e-mail e token de recuperação; o token nunca é devolvido pela API pública.
 - A aplicação recusa iniciar sem banco, segredos JWT/OTP, credenciais administrativas e configuração OneSignal; os segredos devem ter 32 caracteres e a senha administrativa, 12.
 
 ## Executar
+
+## Upload de imagens
+
+Envie o conteúdo binário da imagem para `POST /api/v1/uploads`, autenticado, com
+`Content-Type: image/jpeg`, `image/png`, `image/webp` ou `image/gif`. A resposta
+contém somente o caminho (por exemplo, `/uploads/<uuid>.jpg`), que deve ser usado
+no campo `foto` ao criar ou atualizar um cadastro. As imagens podem ser recuperadas
+por `GET /uploads/<uuid>.<ext>` e o MongoDB armazena apenas esse caminho.
+
+Para manter compatibilidade com o frontend existente, o campo `foto` também aceita
+o mesmo data URL Base64 já utilizado anteriormente. O backend salva esse conteúdo
+automaticamente em `UPLOAD_DIR` e substitui o Base64 pelo caminho antes de gravar
+o documento no MongoDB; portanto, nenhuma alteração no frontend é necessária.
 
 Desenvolvimento:
 

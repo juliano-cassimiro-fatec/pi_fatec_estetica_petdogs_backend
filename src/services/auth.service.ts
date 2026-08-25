@@ -6,6 +6,7 @@ import type { IForgotPasswordDTO, ILoginDTO, IRegisterDTO, IResetPasswordDTO, IS
 import { AppError, badRequest, tooManyRequests } from "../errors/app-error.js"
 import { env } from "../config/env.js"
 import { assertEmail } from "../utils/validation.js"
+import { storeImageInput } from "./upload.service.js"
 
 const TOKEN_EXPIRATION_SECONDS = 60 * 60 * 24
 const OTP_EXPIRATION_MS = 10 * 60 * 1000
@@ -286,7 +287,7 @@ class AuthService {
         }
 
         if (data.telefone?.trim()) clientePayload.telefone = data.telefone.trim()
-        if (data.foto?.trim()) clientePayload.foto = data.foto.trim()
+        if (data.foto?.trim()) clientePayload.foto = await storeImageInput(data.foto)
 
         const cliente = await Cliente.create(clientePayload)
 

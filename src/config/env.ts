@@ -1,4 +1,4 @@
-const required = ["MONGO_URI", "JWT_SECRET", "ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME", "ONESIGNAL_APP_ID", "ONESIGNAL_API_KEY", "OTP_VERIFICATION_SECRET"] as const
+const required = ["MONGO_URI", "JWT_SECRET", "ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME", "ONESIGNAL_APP_ID", "ONESIGNAL_API_KEY", "OTP_VERIFICATION_SECRET", "UPLOAD_DIR"] as const
 
 export function validateEnvironment(): void {
     const missing = required.filter((key) => !process.env[key]?.trim())
