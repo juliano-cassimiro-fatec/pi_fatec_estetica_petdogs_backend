@@ -18,7 +18,7 @@ Backend REST para uma estética pet. A API permite autenticar usuários, gerenci
 
 ```text
 src/
-├── app/              # Configuração do Express
+├── app/              # Configuração do Express e Swagger
 ├── config/           # Configuração de banco de dados
 ├── controllers/      # Entrada HTTP: lê request, chama service e responde
 ├── middlewares/      # Autenticação, autorização e tratamento central de erros
@@ -95,6 +95,22 @@ npm test
 
 O projeto usa MongoDB via Mongoose e não possui migrations versionadas. Configure `MONGO_URI` apontando para a base desejada e inicie a aplicação; os schemas são registrados automaticamente pelos models.
 
+## Swagger
+
+A documentação OpenAPI fica disponível em:
+
+```text
+/api/docs
+```
+
+O JSON OpenAPI fica disponível em:
+
+```text
+/api/docs/openapi.json
+```
+
+No Swagger, use o botão **Authorize** para informar o token JWT no formato Bearer.
+
 ## Autenticação
 
 A autenticação usa token JWT assinado com `JWT_SECRET`. Após login ou cadastro, a API retorna um token que deve ser enviado no header:
@@ -121,7 +137,7 @@ Papéis usados pela API:
 
 ## Rotas principais
 
-Todas as rotas da API ficam sob `/api/v1`.
+Todas as rotas da API ficam sob `/api/v1`, exceto a documentação Swagger em `/api/docs`.
 
 - `GET /api/v1/health`
 - `/api/v1/auth`
