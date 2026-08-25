@@ -1,6 +1,6 @@
 import type { Response } from "express"
 import profissionalService from "../services/profissional.service.js"
-import type { AuthenticatedRequest } from "../middlewares/request.types.js"
+import type { AuthenticatedRequest } from "../models/request.types.js"
 
 class ProfissionalController {
     async create(req: AuthenticatedRequest, res: Response): Promise<Response> {

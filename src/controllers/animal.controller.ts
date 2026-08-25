@@ -1,6 +1,6 @@
 import type { Response } from "express"
 import animalService from "../services/animal.service.js"
-import type { AuthenticatedRequest } from "../middlewares/request.types.js"
+import type { AuthenticatedRequest } from "../models/request.types.js"
 
 class AnimalController {
     public async create(req: AuthenticatedRequest, res: Response): Promise<Response> {

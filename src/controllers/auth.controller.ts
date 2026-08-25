@@ -1,5 +1,5 @@
 import type { Request, Response } from "express"
-import type { AuthenticatedRequest } from "../middlewares/request.types.js"
+import type { AuthenticatedRequest } from "../models/request.types.js"
 import Cliente from "../models/cliente.model.js"
 import Profissional from "../models/profissional.model.js"
 import authService from "../services/auth.service.js"
