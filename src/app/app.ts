@@ -1,7 +1,6 @@
 import cors from "cors"
 import express from "express"
 import routes from "../routes/index.js"
-import { handleError } from "../middlewares/error.middleware.js"
 import { setupSwagger } from "./swagger.js"
 
 const app = express()
@@ -18,6 +17,5 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }))
 
 setupSwagger(app)
 app.use("/api/v1", routes)
-app.use(handleError)
 
 export default app
