@@ -6,16 +6,6 @@ export interface IRegisterDTO {
     password: string
     telefone?: string
     foto?: string
-    verificationToken: string
-}
-
-export interface ISendOtpDTO {
-    email: string
-}
-
-export interface IVerifyOtpDTO {
-    email: string
-    codigo: string
 }
 
 export interface ILoginDTO {
