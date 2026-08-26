@@ -93,14 +93,6 @@ Produção após o build:
 npm start
 ```
 
-Testes existentes:
-
-```bash
-npm test
-```
-
-> Atualmente o script de teste executa o build TypeScript.
-
 ## Banco de dados
 
 O projeto usa MongoDB via Mongoose e não possui migrations versionadas. Configure `MONGO_URI` apontando para a base desejada e inicie a aplicação; os schemas são registrados automaticamente pelos models.
