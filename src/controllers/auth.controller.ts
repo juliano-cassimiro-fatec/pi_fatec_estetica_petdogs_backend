@@ -46,20 +46,10 @@ class AuthController {
     }
 
     public async register(req: Request, res: Response): Promise<Response> {
-        const { name, email, password, telefone, foto, verificationToken } = req.body ?? {}
-        const result = await authService.register({ name, email, password, telefone, foto, verificationToken })
+        const { name, email, password, telefone, foto } = req.body ?? {}
+        const result = await authService.register({ name, email, password, telefone, foto })
 
         return res.status(201).json(result)
-    }
-
-    public async sendOtp(req: Request, res: Response): Promise<Response> {
-        const { email } = req.body ?? {}
-        return res.status(200).json(await authService.sendOtp({ email }))
-    }
-
-    public async verifyOtp(req: Request, res: Response): Promise<Response> {
-        const { email, codigo } = req.body ?? {}
-        return res.status(200).json(await authService.verifyOtp({ email, codigo }))
     }
 
     public async login(req: Request, res: Response): Promise<Response> {

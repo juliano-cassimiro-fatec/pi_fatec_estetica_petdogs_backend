@@ -2,7 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { validateEnvironment } from "../dist/config/env.js"
 
-const keys = ["MONGO_URI", "JWT_SECRET", "ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME", "ONESIGNAL_APP_ID", "ONESIGNAL_API_KEY", "OTP_VERIFICATION_SECRET", "UPLOAD_DIR"]
+const keys = ["MONGO_URI", "JWT_SECRET", "ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME", "UPLOAD_DIR"]
 
 test("rejeita configuração obrigatória ausente", () => {
   const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]))
@@ -18,9 +18,6 @@ test("aceita configuração segura", () => {
     ADMIN_EMAIL: "admin@example.com",
     ADMIN_PASSWORD: "secure-pass-123",
     ADMIN_NAME: "Admin",
-    ONESIGNAL_APP_ID: "onesignal-app-id",
-    ONESIGNAL_API_KEY: "onesignal-api-key",
-    OTP_VERIFICATION_SECRET: "b".repeat(32),
     UPLOAD_DIR: "/tmp/petdogs-uploads",
   })
   assert.doesNotThrow(validateEnvironment)
