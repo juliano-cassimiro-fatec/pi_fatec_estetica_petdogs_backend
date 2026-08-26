@@ -4,6 +4,7 @@ import type { ICreateAnimalDTO, IUpdateAnimalDTO } from "../models/animal.types.
 import { assertObjectId } from "../utils/validation.js"
 import Agendamento from "../models/agendamento.model.js"
 import { conflict } from "../errors/app-error.js"
+import { storeImageInput } from "./upload.service.js"
 
 class AnimalService {
     private validateCreate(data: ICreateAnimalDTO): void {
@@ -36,7 +37,7 @@ class AnimalService {
             cliente: data.cliente,
         }
 
-        if (data.foto?.trim()) payload.foto = data.foto.trim()
+        if (data.foto?.trim()) payload.foto = await storeImageInput(data.foto)
 
         return Animal.create(payload)
     }
@@ -67,7 +68,7 @@ class AnimalService {
             if (!["pequeno", "medio", "grande"].includes(porte)) throw new Error("Porte inválido")
             payload.porte = porte as NonNullable<IUpdateAnimalDTO["porte"]>
         }
-        if (data.foto !== undefined) payload.foto = data.foto.trim()
+        if (data.foto?.trim()) payload.foto = await storeImageInput(data.foto)
         if (data.cliente !== undefined && user.role === "admin") payload.cliente = data.cliente
         if (data.idade !== undefined) {
             if (!Number.isFinite(Number(data.idade)) || Number(data.idade) < 0) {

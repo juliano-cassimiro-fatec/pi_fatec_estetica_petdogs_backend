@@ -6,6 +6,7 @@ import clienteRoutes from "./cliente.routes.js"
 import profissionalRoutes from "./profissional.routes.js"
 import relatorioRoutes from "./relatorio.routes.js"
 import servicoRoutes from "./servico.routes.js"
+import uploadRoutes from "./upload.routes.js"
 
 const routes = Router()
 
@@ -23,5 +24,6 @@ routes.use("/servicos", servicoRoutes)
 routes.use("/agendamentos", agendamentoRoutes)
 routes.use("/profissionais", profissionalRoutes)
 routes.use("/relatorios", relatorioRoutes)
+routes.use("/uploads", uploadRoutes)
 
 export default routes

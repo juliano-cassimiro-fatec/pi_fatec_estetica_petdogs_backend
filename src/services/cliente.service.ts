@@ -7,6 +7,7 @@ import { notFound, conflict } from "../errors/app-error.js"
 import { assertEmail, assertObjectId } from "../utils/validation.js"
 import Animal from "../models/animal.model.js"
 import Agendamento from "../models/agendamento.model.js"
+import { storeImageInput } from "./upload.service.js"
 
 class ClienteService {
     async create(data: ICreateClienteDTO) {
@@ -26,7 +27,7 @@ class ClienteService {
         }
 
         if (data.telefone?.trim()) payload.telefone = data.telefone.trim()
-        if (data.foto?.trim()) payload.foto = data.foto.trim()
+        if (data.foto?.trim()) payload.foto = await storeImageInput(data.foto)
 
         return Cliente.create(payload)
     }
@@ -53,7 +54,7 @@ class ClienteService {
             payload.email = email
         }
         if (data.telefone !== undefined) payload.telefone = data.telefone.trim()
-        if (data.foto !== undefined) payload.foto = data.foto.trim()
+        if (data.foto?.trim()) payload.foto = await storeImageInput(data.foto)
         if (data.senha !== undefined && data.senha.trim()) {
             authService.assertPassword(data.senha)
             payload.senha = await authService.hashPassword(data.senha)

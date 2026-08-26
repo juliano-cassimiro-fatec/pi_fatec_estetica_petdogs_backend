@@ -3,6 +3,7 @@ import express from "express"
 import routes from "../routes/index.js"
 import { handleError } from "../middlewares/error.middleware.js"
 import { setupSwagger } from "./swagger.js"
+import { getUploadDirectory, UPLOAD_URL_PREFIX } from "../config/uploads.js"
 
 const app = express()
 const corsOptions = {
@@ -13,10 +14,13 @@ const corsOptions = {
 
 app.use(cors(corsOptions))
 app.options(/.*/, cors(corsOptions))
-app.use(express.json({ limit: "1mb" }))
-app.use(express.urlencoded({ extended: true, limit: "1mb" }))
+// Base64 adds roughly 33% overhead; this keeps existing JSON requests compatible
+// with the same 5 MB image limit enforced by the upload service.
+app.use(express.json({ limit: "7mb" }))
+app.use(express.urlencoded({ extended: true, limit: "7mb" }))
 
 setupSwagger(app)
+app.use(UPLOAD_URL_PREFIX, express.static(getUploadDirectory(), { index: false, fallthrough: false }))
 app.use("/api/v1", routes)
 app.use(handleError)
 
