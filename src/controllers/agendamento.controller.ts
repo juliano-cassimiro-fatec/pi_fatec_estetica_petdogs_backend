@@ -1,16 +1,26 @@
 import type { Response } from "express";
 import agendamentoService from "../services/agendamento.service.js";
 import type { AuthenticatedRequest } from "../middlewares/request.types.js";
+import type { ICreateAgendamentoDTO } from "../models/agendamento.types.js";
+import { badRequest } from "../errors/app-error.js";
 
 class AgendamentoController {
-  public async availability(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  public async availability(
+    this: void,
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<Response> {
     const profissionalId = String(req.query.profissionalId ?? req.query.profissional ?? "");
     const servicoId = String(req.query.servicoId ?? req.query.servico ?? "");
     const date = String(req.query.date ?? "");
     return res.json(await agendamentoService.getAvailability({ profissionalId, servicoId, date }));
   }
 
-  public async availabilityMonth(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  public async availabilityMonth(
+    this: void,
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<Response> {
     const profissionalId = String(req.query.profissionalId ?? req.query.profissional ?? "");
     const servicoId = String(req.query.servicoId ?? req.query.servico ?? "");
     const month = String(req.query.month ?? "");
@@ -19,7 +29,7 @@ class AgendamentoController {
     );
   }
 
-  public async create(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  public async create(this: void, req: AuthenticatedRequest, res: Response): Promise<Response> {
     const {
       data_hora,
       dateTime,
@@ -35,18 +45,18 @@ class AgendamentoController {
       profissionalId,
       professional,
       professionalId,
-    } = req.body ?? {};
+    } = req.body;
     const agendamento = await agendamentoService.create({
-      data_hora: data_hora ?? dateTime,
-      animal: animal ?? animalId ?? pet ?? petId,
-      servico: servico ?? servicoId ?? service ?? serviceId,
-      profissional: profissional ?? profissionalId ?? professional ?? professionalId,
+      data_hora: data_hora ?? dateTime ?? "",
+      animal: animal ?? animalId ?? pet ?? petId ?? "",
+      servico: servico ?? servicoId ?? service ?? serviceId ?? "",
+      profissional: profissional ?? profissionalId ?? professional ?? professionalId ?? "",
       cliente: req.user?.id ?? "",
     });
     return res.status(201).json(agendamento);
   }
 
-  public async update(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  public async update(this: void, req: AuthenticatedRequest, res: Response): Promise<Response> {
     const {
       data_hora,
       dateTime,
@@ -63,7 +73,10 @@ class AgendamentoController {
       professional,
       professionalId,
       status,
-    } = req.body ?? {};
+    } = req.body;
+    if (status !== undefined && status !== "scheduled" && status !== "canceled") {
+      throw badRequest("Status inválido");
+    }
     const agendamento = await agendamentoService.update(
       String(req.params.id ?? ""),
       {
@@ -72,13 +85,13 @@ class AgendamentoController {
         servico: servico ?? servicoId ?? service ?? serviceId,
         profissional: profissional ?? profissionalId ?? professional ?? professionalId,
         status,
-      },
+      } as Partial<ICreateAgendamentoDTO> & { status?: "scheduled" | "canceled" },
       { id: req.user?.id ?? "", role: req.user?.role ?? "cliente" },
     );
     return res.json(agendamento);
   }
 
-  public async getAll(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  public async getAll(this: void, req: AuthenticatedRequest, res: Response): Promise<Response> {
     const agendamentos = await agendamentoService.getAll({
       id: req.user?.id ?? "",
       role: req.user?.role ?? "cliente",
@@ -87,7 +100,7 @@ class AgendamentoController {
     return res.json(agendamentos);
   }
 
-  public async cancel(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  public async cancel(this: void, req: AuthenticatedRequest, res: Response): Promise<Response> {
     const user = { id: req.user?.id ?? "", role: req.user?.role ?? "cliente" };
     return res.json(await agendamentoService.cancel(String(req.params.id ?? ""), user));
   }

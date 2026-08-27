@@ -8,7 +8,7 @@ import { storeImageInput } from "./upload.service.js";
 
 class AnimalService {
   private validateCreate(data: ICreateAnimalDTO): void {
-    if (!data.nome?.trim() || !data.raca?.trim() || !data.porte?.trim() || !data.cliente) {
+    if (!data.nome.trim() || !data.raca.trim() || !data.porte.trim() || !data.cliente) {
       throw new Error("Nome, raça, porte e tutor são obrigatórios");
     }
 

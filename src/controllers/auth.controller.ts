@@ -1,11 +1,11 @@
-import type { Request, Response } from "express";
-import type { AuthenticatedRequest } from "../middlewares/request.types.js";
+import type { Response } from "express";
+import type { ApiRequest, AuthenticatedRequest } from "../middlewares/request.types.js";
 import Cliente from "../models/cliente.model.js";
 import Profissional from "../models/profissional.model.js";
 import authService from "../services/auth.service.js";
 
 class AuthController {
-  public async me(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  public async me(this: void, req: AuthenticatedRequest, res: Response): Promise<Response> {
     if (!req.user) {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
@@ -47,30 +47,42 @@ class AuthController {
     });
   }
 
-  public async register(req: Request, res: Response): Promise<Response> {
-    const { name, email, password, telefone, foto } = req.body ?? {};
-    const result = await authService.register({ name, email, password, telefone, foto });
+  public async register(this: void, req: ApiRequest, res: Response): Promise<Response> {
+    const { name, email, password, telefone, foto } = req.body;
+    const result = await authService.register({
+      name: name ?? "",
+      email: email ?? "",
+      password: password ?? "",
+      ...(telefone !== undefined ? { telefone } : {}),
+      ...(foto !== undefined ? { foto } : {}),
+    });
 
     return res.status(201).json(result);
   }
 
-  public async login(req: Request, res: Response): Promise<Response> {
-    const { email, password } = req.body ?? {};
-    const result = await authService.login({ email, password });
+  public async login(this: void, req: ApiRequest, res: Response): Promise<Response> {
+    const { email, password } = req.body;
+    const result = await authService.login({
+      email: email ?? "",
+      password: password ?? "",
+    });
 
     return res.status(200).json(result);
   }
 
-  public async forgotPassword(req: Request, res: Response): Promise<Response> {
-    const { email } = req.body ?? {};
-    const result = await authService.forgotPassword({ email });
+  public async forgotPassword(this: void, req: ApiRequest, res: Response): Promise<Response> {
+    const { email } = req.body;
+    const result = await authService.forgotPassword({ email: email ?? "" });
 
     return res.status(200).json(result);
   }
 
-  public async resetPassword(req: Request, res: Response): Promise<Response> {
-    const { token, password } = req.body ?? {};
-    const result = await authService.resetPassword({ token, password });
+  public async resetPassword(this: void, req: ApiRequest, res: Response): Promise<Response> {
+    const { token, password } = req.body;
+    const result = await authService.resetPassword({
+      token: token ?? "",
+      password: password ?? "",
+    });
 
     return res.status(200).json(result);
   }
