@@ -1,28 +1,28 @@
-import type { Types } from "mongoose"
+import type { Types } from "mongoose";
 
-export type AgendamentoStatus = "scheduled" | "canceled"
+export type AgendamentoStatus = "scheduled" | "canceled";
 
 export interface IAgendamento {
-    data_hora: Date
-    status: AgendamentoStatus
-    cliente: Types.ObjectId | string
-    animal: Types.ObjectId | string
-    servico: Types.ObjectId | string
-    profissional: Types.ObjectId | string
-    createdAt: Date
-    updatedAt?: Date
+  data_hora: Date;
+  status: AgendamentoStatus;
+  cliente: Types.ObjectId | string;
+  animal: Types.ObjectId | string;
+  servico: Types.ObjectId | string;
+  profissional: Types.ObjectId | string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface ICreateAgendamentoDTO {
-    data_hora: Date | string
-    cliente: string
-    animal: string
-    servico: string
-    profissional: string
+  data_hora: Date | string;
+  cliente: string;
+  animal: string;
+  servico: string;
+  profissional: string;
 }
 
 export interface IAvailabilityQuery {
-    profissionalId: string
-    servicoId: string
-    date: string
+  profissionalId: string;
+  servicoId: string;
+  date: string;
 }
