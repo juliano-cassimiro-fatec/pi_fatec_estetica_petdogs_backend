@@ -3,7 +3,7 @@ import app from "./app/app.js";
 import { connectDatabase } from "./config/database.js";
 import { validateEnvironment } from "./config/env.js";
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT ?? 3000;
 
 async function startServer(): Promise<void> {
   validateEnvironment();

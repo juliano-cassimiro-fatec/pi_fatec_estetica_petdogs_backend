@@ -111,7 +111,6 @@ class AgendamentoService {
 
     const sorted = [...intervals].sort((left, right) => left.start - right.start);
     const first = sorted[0]!;
-    if (!first) return [];
 
     const merged: TimeInterval[] = [{ ...first }];
 
@@ -316,8 +315,6 @@ class AgendamentoService {
         data.data_hora !== undefined)
     )
       throw forbidden("Profissional só pode alterar o status do agendamento");
-    if (data.status !== undefined && data.status !== "scheduled" && data.status !== "canceled")
-      throw badRequest("Status inválido");
     if (user.role !== "admin" && data.status === "scheduled" && existing.status === "canceled")
       throw forbidden("Somente administrador pode reativar agendamento");
 

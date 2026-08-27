@@ -11,7 +11,7 @@ import { storeImageInput } from "./upload.service.js";
 
 class ClienteService {
   async create(data: ICreateClienteDTO) {
-    if (!data.name?.trim() || !data.email?.trim() || !data.senha?.trim()) {
+    if (!data.name.trim() || !data.email.trim() || !data.senha.trim()) {
       throw new Error("Nome, e-mail e senha são obrigatórios");
     }
 
@@ -60,7 +60,7 @@ class ClienteService {
     }
     if (data.telefone !== undefined) payload.telefone = data.telefone.trim();
     if (data.foto?.trim()) payload.foto = await storeImageInput(data.foto);
-    if (data.senha !== undefined && data.senha.trim()) {
+    if (data.senha?.trim()) {
       authService.assertPassword(data.senha);
       payload.senha = await authService.hashPassword(data.senha);
     }

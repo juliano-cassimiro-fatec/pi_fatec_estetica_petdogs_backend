@@ -6,11 +6,11 @@ import Agendamento from "../models/agendamento.model.js";
 
 class ServicoService {
   private validate(data: ICreateServicoDTO): void {
-    if (!data.name?.trim()) {
+    if (!data.name.trim()) {
       throw new Error("Nome do serviço é obrigatório");
     }
 
-    if (!data.descricao?.trim()) {
+    if (!data.descricao.trim()) {
       throw new Error("Descrição do serviço é obrigatória");
     }
 

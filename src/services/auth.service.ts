@@ -165,7 +165,7 @@ class AuthService {
   }
 
   public async register(data: IRegisterDTO) {
-    const name = data.name?.trim();
+    const name = data.name.trim();
     const email = this.normalizeEmail(data.email);
     const password = data.password;
 
@@ -203,7 +203,7 @@ class AuthService {
   }
 
   public async login(data: ILoginDTO) {
-    const email = data.email?.trim().toLowerCase();
+    const email = data.email.trim().toLowerCase();
 
     if (!email || !data.password) {
       throw new Error("E-mail e senha são obrigatórios");
@@ -246,7 +246,7 @@ class AuthService {
   }
 
   public async forgotPassword(data: IForgotPasswordDTO) {
-    const email = data.email?.trim().toLowerCase();
+    const email = data.email.trim().toLowerCase();
 
     if (!email) throw badRequest("E-mail inválido");
     assertEmail(email);

@@ -76,11 +76,11 @@ class ProfissionalService {
   }
 
   async create(data: ICreateProfissionaleDTO) {
-    const name = data.name?.trim();
-    const email = data.email?.trim().toLowerCase();
+    const name = data.name.trim();
+    const email = data.email.trim().toLowerCase();
     const senha = data.senha;
 
-    if (!name || !email || !senha || !data.especialidade?.trim()) {
+    if (!name || !email || !senha || !data.especialidade.trim()) {
       throw new Error("Nome, e-mail, senha e especialidade são obrigatórios");
     }
 
@@ -173,7 +173,7 @@ class ProfissionalService {
         data.disponibilidade_fim,
         "Disponibilidade final",
       );
-    if (data.senha !== undefined && data.senha.trim()) {
+    if (data.senha?.trim()) {
       authService.assertPassword(data.senha);
       payload.senha = await authService.hashPassword(data.senha);
     }
