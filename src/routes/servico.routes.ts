@@ -1,14 +1,14 @@
-import { Router } from "express"
-import servicoController from "../controllers/servico.controller.js"
-import { ensureAuthenticated } from "../middlewares/auth.middleware.js"
-import { ensureRoles } from "../middlewares/authorization.middleware.js"
+import { Router } from "express";
+import servicoController from "../controllers/servico.controller.js";
+import { ensureAuthenticated } from "../middlewares/auth.middleware.js";
+import { ensureRoles } from "../middlewares/authorization.middleware.js";
 
-const servicoRoutes = Router()
+const servicoRoutes = Router();
 
-servicoRoutes.get("/", servicoController.findAll)
-servicoRoutes.get("/:id", servicoController.findById)
-servicoRoutes.post("/", ensureAuthenticated, ensureRoles(["admin"]), servicoController.create)
-servicoRoutes.delete("/:id", ensureAuthenticated, ensureRoles(["admin"]), servicoController.delete)
-servicoRoutes.put("/:id", ensureAuthenticated, ensureRoles(["admin"]), servicoController.update)
+servicoRoutes.get("/", servicoController.findAll);
+servicoRoutes.get("/:id", servicoController.findById);
+servicoRoutes.post("/", ensureAuthenticated, ensureRoles(["admin"]), servicoController.create);
+servicoRoutes.delete("/:id", ensureAuthenticated, ensureRoles(["admin"]), servicoController.delete);
+servicoRoutes.put("/:id", ensureAuthenticated, ensureRoles(["admin"]), servicoController.update);
 
-export default servicoRoutes
+export default servicoRoutes;
