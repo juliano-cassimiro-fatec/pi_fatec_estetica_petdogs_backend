@@ -9,7 +9,7 @@ class RelatorioService {
       Cliente.countDocuments(),
       Animal.countDocuments(),
       Servico.countDocuments(),
-      Agendamento.countDocuments({ status: "canceled" }),
+      Agendamento.countDocuments({ status: "cancelado" }),
     ]);
     return { total_clientes, total_animais, total_servicos, total_cancelamentos, total_faltas: 0 };
   }

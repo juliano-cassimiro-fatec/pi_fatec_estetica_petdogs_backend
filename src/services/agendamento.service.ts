@@ -196,7 +196,7 @@ class AgendamentoService {
     const { start, end } = this.getDayBounds(date);
     const filter: Record<string, unknown> = {
       profissional: profissionalId,
-      status: "scheduled",
+      status: "agendado",
       data_hora: { $gte: start, $lte: end },
     };
 
@@ -280,7 +280,7 @@ class AgendamentoService {
       await this.validateAvailability(data.profissional, data.servico, dataHora);
       return Agendamento.create({
         data_hora: dataHora,
-        status: "scheduled",
+        status: "agendado",
         cliente: data.cliente,
         animal: data.animal,
         servico: data.servico,
@@ -291,7 +291,7 @@ class AgendamentoService {
 
   public async update(
     id: string,
-    data: Partial<ICreateAgendamentoDTO> & { status?: "scheduled" | "canceled" },
+    data: Partial<ICreateAgendamentoDTO> & { status?: "agendado" | "cancelado" },
     user: { id: string; role: UserRole },
   ) {
     assertObjectId(id, "Agendamento");
@@ -316,9 +316,9 @@ class AgendamentoService {
         data.data_hora !== undefined)
     )
       throw forbidden("Profissional só pode alterar o status do agendamento");
-    if (data.status !== undefined && data.status !== "scheduled" && data.status !== "canceled")
+    if (data.status !== undefined && data.status !== "agendado" && data.status !== "cancelado")
       throw badRequest("Status inválido");
-    if (user.role !== "admin" && data.status === "scheduled" && existing.status === "canceled")
+    if (user.role !== "admin" && data.status === "agendado" && existing.status === "cancelado")
       throw forbidden("Somente administrador pode reativar agendamento");
 
     const nextProfessional = data.profissional ?? String(existing.profissional);
@@ -330,7 +330,7 @@ class AgendamentoService {
     const nextStatus = data.status ?? existing.status;
     const schedulingChanged =
       data.profissional !== undefined || data.servico !== undefined || data.data_hora !== undefined;
-    if (schedulingChanged || (existing.status === "canceled" && nextStatus === "scheduled"))
+    if (schedulingChanged || (existing.status === "cancelado" && nextStatus === "agendado"))
       await this.validateAvailability(nextProfessional, nextService, nextDateTime, id);
     const nextAnimal = data.animal ?? String(existing.animal);
     assertObjectId(nextAnimal, "Pet");
@@ -481,13 +481,13 @@ class AgendamentoService {
     assertObjectId(id, "Agendamento");
     const filter =
       user.role === "admin"
-        ? { _id: id, status: "scheduled" }
+        ? { _id: id, status: "agendado" }
         : user.role === "profissional"
-          ? { _id: id, profissional: user.id, status: "scheduled" }
-          : { _id: id, cliente: user.id, status: "scheduled" };
+          ? { _id: id, profissional: user.id, status: "agendado" }
+          : { _id: id, cliente: user.id, status: "agendado" };
     const agendamento = await Agendamento.findOneAndUpdate(
       filter,
-      { status: "canceled" },
+      { status: "cancelado" },
       { new: true },
     );
 
