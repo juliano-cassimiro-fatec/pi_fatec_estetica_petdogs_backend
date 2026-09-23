@@ -9,6 +9,7 @@ export interface ICliente {
   resetPasswordExpires?: Date;
   createdAt: Date;
   updatedAt?: Date;
+  ative: boolean;
 }
 
 export interface ICreateClienteDTO {
@@ -25,4 +26,5 @@ export interface IUpdateClienteDTO {
   telefone?: string;
   foto?: string;
   senha?: string;
+  ative?: boolean;
 }

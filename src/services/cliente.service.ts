@@ -55,7 +55,7 @@ class ClienteService {
   }
 
   async getAll() {
-    return Cliente.find().sort({ name: 1 });
+    return Cliente.find({ ative: true }).sort({ name: 1 });
   }
 
   async getById(id: string) {
@@ -112,6 +112,10 @@ class ClienteService {
     if (data.senha?.trim()) {
       authService.assertPassword(data.senha);
       payload.senha = await authService.hashPassword(data.senha);
+    }
+
+    if(data.ative !== undefined) {
+      payload.ative = data.ative;
     }
 
     const cliente = await Cliente.findByIdAndUpdate(
