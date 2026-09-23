@@ -43,6 +43,10 @@ const clienteSchema = new Schema<ICliente>(
       type: Date,
       select: false,
     },
+    ative: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true },
 );

@@ -31,6 +31,7 @@ export const openApiDocument = {
       },
       Cliente: {
         type: "object",
+        description: "A propriedade foto recebe o caminho retornado por POST /uploads.",
         properties: {
           id: { type: "string" },
           name: { type: "string" },
@@ -42,6 +43,7 @@ export const openApiDocument = {
       },
       Profissional: {
         type: "object",
+        description: "A propriedade foto recebe o caminho retornado por POST /uploads.",
         properties: {
           id: { type: "string" },
           name: { type: "string" },
@@ -55,6 +57,7 @@ export const openApiDocument = {
       },
       Pet: {
         type: "object",
+        description: "A propriedade foto recebe o caminho retornado por POST /uploads.",
         required: ["nome", "raca", "idade", "porte"],
         properties: {
           id: { type: "string" },
@@ -83,7 +86,7 @@ export const openApiDocument = {
         properties: {
           id: { type: "string" },
           data_hora: { type: "string", format: "date-time" },
-          status: { type: "string", enum: ["scheduled", "canceled"] },
+          status: { type: "string", enum: ["agendado", "cancelado"] },
           animal: { type: "string" },
           servico: { type: "string" },
           profissional: { type: "string" },
@@ -387,6 +390,53 @@ export const openApiDocument = {
         responses: {
           "200": { description: "Indicadores calculados" },
           "403": { description: "Acesso negado" },
+        },
+      },
+    },
+    "/uploads": {
+      post: {
+        summary: "Envia uma imagem",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "image/jpeg": { schema: { type: "string", format: "binary" } },
+            "image/png": { schema: { type: "string", format: "binary" } },
+            "image/webp": { schema: { type: "string", format: "binary" } },
+            "image/gif": { schema: { type: "string", format: "binary" } },
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["base64", "contentType"],
+                properties: {
+                  base64: { type: "string" },
+                  contentType: { type: "string", example: "image/png" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Imagem salva e URL pública retornada",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    caminho: { type: "string", example: "/uploads/uuid.png" },
+                    nome: { type: "string", example: "uuid.png" },
+                    tipo: { type: "string", example: "image/png" },
+                    url: { type: "string", format: "uri", example: "http://localhost:3001/uploads/uuid.png" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Arquivo ausente ou inválido" },
+          "401": { description: "Não autenticado" },
+          "413": { description: "Imagem excede 5 MB" },
+          "415": { description: "Formato não suportado" },
         },
       },
     },

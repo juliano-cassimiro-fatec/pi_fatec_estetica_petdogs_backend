@@ -11,7 +11,7 @@ import type {
 import { badRequest } from "../errors/app-error.js";
 import { env } from "../config/env.js";
 import { assertEmail } from "../utils/validation.js";
-import { storeImageInput } from "./upload.service.js";
+import { validateStoredImagePath } from "./upload.service.js";
 
 const TOKEN_EXPIRATION_SECONDS = 60 * 60 * 24;
 
@@ -164,43 +164,51 @@ class AuthService {
     };
   }
 
-  public async register(data: IRegisterDTO) {
-    const name = data.name?.trim();
-    const email = this.normalizeEmail(data.email);
-    const password = data.password;
+public async register(data: IRegisterDTO) {
+  const name = data.name?.trim();
+  const email = this.normalizeEmail(data.email);
+  const password = data.password;
 
-    if (!name || !password) {
-      throw new Error("Nome, e-mail e senha são obrigatórios");
-    }
-
-    this.assertPassword(password);
-    const emailInUse = await Cliente.findOne({ email });
-    const professionalEmailInUse = await Profissional.findOne({ email });
-
-    if (emailInUse || professionalEmailInUse || email === env("ADMIN_EMAIL").toLowerCase()) {
-      throw new Error("E-mail já cadastrado");
-    }
-
-    const clientePayload: Record<string, string> = {
-      name,
-      email,
-      senha: await this.hashPassword(password),
-      role: "cliente",
-    };
-
-    if (data.telefone?.trim()) clientePayload.telefone = data.telefone.trim();
-    if (data.foto?.trim()) clientePayload.foto = await storeImageInput(data.foto);
-
-    const cliente = await Cliente.create(clientePayload);
-
-    return this.buildSession({
-      id: cliente.id,
-      name: cliente.name,
-      email: cliente.email,
-      role: "cliente",
-      foto: cliente.foto,
-    });
+  if (!name || !email || !password) {
+    throw new Error("Nome, e-mail e senha são obrigatórios");
   }
+
+  this.assertPassword(password);
+
+  const emailInUse = await Cliente.findOne({ email });
+  const professionalEmailInUse = await Profissional.findOne({ email });
+
+  if (
+    emailInUse ||
+    professionalEmailInUse ||
+    email === env("ADMIN_EMAIL").toLowerCase()
+  ) {
+    throw new Error("E-mail já cadastrado");
+  }
+
+  const clientePayload = {
+    name,
+    email,
+    senha: await this.hashPassword(password),
+    role: "cliente" as const,
+    ...(data.telefone?.trim() && {
+      telefone: data.telefone.trim(),
+    }),
+    ...(data.foto?.trim() && {
+      foto: validateStoredImagePath(data.foto),
+    }),
+  };
+
+  const cliente = await Cliente.create(clientePayload);
+
+  return this.buildSession({
+    id: cliente.id,
+    name: cliente.name,
+    email: cliente.email,
+    role: "cliente",
+    foto: cliente.foto,
+  });
+}
 
   public async login(data: ILoginDTO) {
     const email = data.email?.trim().toLowerCase();
