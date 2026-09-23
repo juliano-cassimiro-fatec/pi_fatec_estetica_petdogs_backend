@@ -2,13 +2,13 @@ import type { Request, Response } from "express";
 import { AppError } from "../errors/app-error.js";
 import { saveUploadedImage } from "../services/upload.service.js";
 
-type UploadBody = {
+interface UploadBody {
   arquivo?: unknown;
   base64?: unknown;
   contentType?: unknown;
   file?: unknown;
   mimeType?: unknown;
-};
+}
 
 function getUploadContent(req: Request): { content: Buffer; contentType: string | undefined } {
   if (Buffer.isBuffer(req.body)) {
@@ -26,7 +26,7 @@ function getUploadContent(req: Request): { content: Buffer; contentType: string 
     throw new AppError(400, "Arquivo não enviado", "FILE_REQUIRED");
   }
 
-  const dataUri = encoded.match(/^data:(image\/[a-z+.-]+);base64,(.+)$/i);
+  const dataUri = /^data:(image\/[a-z+.-]+);base64,(.+)$/i.exec(encoded);
   const base64 = dataUri?.[2] ?? encoded;
   const contentType = dataUri?.[1] ?? body.contentType ?? body.mimeType;
 
