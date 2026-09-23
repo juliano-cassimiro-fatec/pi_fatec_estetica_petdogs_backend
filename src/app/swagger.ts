@@ -427,7 +427,11 @@ export const openApiDocument = {
                     caminho: { type: "string", example: "/uploads/uuid.png" },
                     nome: { type: "string", example: "uuid.png" },
                     tipo: { type: "string", example: "image/png" },
-                    url: { type: "string", format: "uri", example: "http://localhost:3001/uploads/uuid.png" },
+                    url: {
+                      type: "string",
+                      format: "uri",
+                      example: "http://localhost:3001/uploads/uuid.png",
+                    },
                   },
                 },
               },

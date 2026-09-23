@@ -35,23 +35,17 @@ class ProfissionalService {
       ? value.map(Number)
       : value.split(",").map((item) => Number(item.trim()));
 
-    return [...new Set(
-      days.filter(
-        (day) => Number.isInteger(day) && day >= 0 && day <= 6,
-      ),
-    )];
+    return [...new Set(days.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
   }
 
-  private parseTime(
-    value?: string | Date,
-    fallback = DEFAULT_WORKING_START,
-  ): string {
+  private parseTime(value?: string | Date, fallback = DEFAULT_WORKING_START): string {
     if (!value) return fallback;
 
     if (value instanceof Date) {
-      return `${String(value.getHours()).padStart(2, "0")}:${String(
-        value.getMinutes(),
-      ).padStart(2, "0")}`;
+      return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(
+        2,
+        "0",
+      )}`;
     }
 
     const time = value.trim();
@@ -63,9 +57,7 @@ class ProfissionalService {
     throw badRequest("Horário inválido");
   }
 
-  private workingConfig(
-    data: ICreateProfissionaleDTO | IUpdateProfissionalDTO,
-  ) {
+  private workingConfig(data: ICreateProfissionaleDTO | IUpdateProfissionalDTO) {
     return {
       dias_trabalho: this.parseDays(data.dias_trabalho),
 
@@ -79,13 +71,9 @@ class ProfissionalService {
         DEFAULT_WORKING_END,
       ),
 
-      almoco_inicio: data.almoco_inicio
-        ? this.parseTime(data.almoco_inicio)
-        : undefined,
+      almoco_inicio: data.almoco_inicio ? this.parseTime(data.almoco_inicio) : undefined,
 
-      almoco_fim: data.almoco_fim
-        ? this.parseTime(data.almoco_fim)
-        : undefined,
+      almoco_fim: data.almoco_fim ? this.parseTime(data.almoco_fim) : undefined,
     };
   }
 
@@ -96,17 +84,15 @@ class ProfissionalService {
     const especialidade = data.especialidade?.trim();
 
     if (!name || !email || !senha || !especialidade) {
-      throw badRequest(
-        "Nome, e-mail, senha e especialidade são obrigatórios",
-      );
+      throw badRequest("Nome, e-mail, senha e especialidade são obrigatórios");
     }
 
     authService.assertPassword(senha);
     assertEmail(email);
 
     const emailExists =
-      await Profissional.exists({ email }) ||
-      await Cliente.exists({ email }) ||
+      (await Profissional.exists({ email })) ||
+      (await Cliente.exists({ email })) ||
       email === env("ADMIN_EMAIL").toLowerCase();
 
     if (emailExists) {
@@ -134,17 +120,11 @@ class ProfissionalService {
       especialidade,
 
       disponibilidade_inicio: data.disponibilidade_inicio
-        ? this.parseDate(
-            data.disponibilidade_inicio,
-            "Disponibilidade inicial",
-          )
+        ? this.parseDate(data.disponibilidade_inicio, "Disponibilidade inicial")
         : new Date(),
 
       disponibilidade_fim: data.disponibilidade_fim
-        ? this.parseDate(
-            data.disponibilidade_fim,
-            "Disponibilidade final",
-          )
+        ? this.parseDate(data.disponibilidade_fim, "Disponibilidade final")
         : new Date(),
 
       ...config,
@@ -192,7 +172,7 @@ class ProfissionalService {
       assertEmail(email);
 
       const exists =
-        await Cliente.exists({ email }) ||
+        (await Cliente.exists({ email })) ||
         (await Profissional.exists({
           email,
           _id: { $ne: id },
@@ -211,9 +191,7 @@ class ProfissionalService {
     }
 
     if (data.foto !== undefined) {
-      payload.foto = data.foto.trim()
-        ? validateStoredImagePath(data.foto)
-        : "";
+      payload.foto = data.foto.trim() ? validateStoredImagePath(data.foto) : "";
     }
 
     if (data.especialidade !== undefined) {
@@ -229,22 +207,15 @@ class ProfissionalService {
     }
 
     if (data.horario_fim !== undefined) {
-      payload.horario_fim = this.parseTime(
-        data.horario_fim,
-        DEFAULT_WORKING_END,
-      );
+      payload.horario_fim = this.parseTime(data.horario_fim, DEFAULT_WORKING_END);
     }
 
     if (data.almoco_inicio !== undefined) {
-      payload.almoco_inicio = data.almoco_inicio
-        ? this.parseTime(data.almoco_inicio)
-        : undefined;
+      payload.almoco_inicio = data.almoco_inicio ? this.parseTime(data.almoco_inicio) : undefined;
     }
 
     if (data.almoco_fim !== undefined) {
-      payload.almoco_fim = data.almoco_fim
-        ? this.parseTime(data.almoco_fim)
-        : undefined;
+      payload.almoco_fim = data.almoco_fim ? this.parseTime(data.almoco_fim) : undefined;
     }
 
     if (data.disponibilidade_inicio !== undefined) {
@@ -267,14 +238,10 @@ class ProfissionalService {
       payload.senha = await authService.hashPassword(data.senha);
     }
 
-    const profissional = await Profissional.findByIdAndUpdate(
-      id,
-      payload,
-      {
-        new: true,
-        runValidators: true,
-      },
-    );
+    const profissional = await Profissional.findByIdAndUpdate(id, payload, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!profissional) {
       throw notFound("Profissional não encontrado");
@@ -287,13 +254,10 @@ class ProfissionalService {
     assertObjectId(id, "Profissional");
 
     if (await Agendamento.exists({ profissional: id })) {
-      throw conflict(
-        "Profissional possui agendamentos e não pode ser removido",
-      );
+      throw conflict("Profissional possui agendamentos e não pode ser removido");
     }
 
-    const profissional =
-      await Profissional.findByIdAndDelete(id);
+    const profissional = await Profissional.findByIdAndDelete(id);
 
     if (!profissional) {
       throw notFound("Profissional não encontrado");

@@ -49,8 +49,8 @@ class ClienteController {
 
   async delete(req: AuthenticatedRequest, res: Response) {
     const id = String(req.params.id ?? "");
-  //const cliente = await clienteService.delete(id);
-  const cliente = await clienteService.update(id, { ative: false });
+    //const cliente = await clienteService.delete(id);
+    const cliente = await clienteService.update(id, { ative: false });
     return res.status(200).json(cliente);
   }
 }

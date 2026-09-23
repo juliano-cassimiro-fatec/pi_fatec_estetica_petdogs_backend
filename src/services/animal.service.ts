@@ -2,10 +2,7 @@ import Animal from "../models/animal.model.js";
 import Agendamento from "../models/agendamento.model.js";
 
 import type { UserRole } from "../models/auth.types.js";
-import type {
-  ICreateAnimalDTO,
-  IUpdateAnimalDTO,
-} from "../models/animal.types.js";
+import type { ICreateAnimalDTO, IUpdateAnimalDTO } from "../models/animal.types.js";
 
 import { assertObjectId } from "../utils/validation.js";
 import { conflict, notFound } from "../errors/app-error.js";
@@ -13,12 +10,7 @@ import { validateStoredImagePath } from "./upload.service.js";
 
 class AnimalService {
   private validateCreate(data: ICreateAnimalDTO) {
-    if (
-      !data.nome?.trim() ||
-      !data.raca?.trim() ||
-      !data.porte?.trim() ||
-      !data.cliente
-    ) {
+    if (!data.nome?.trim() || !data.raca?.trim() || !data.porte?.trim() || !data.cliente) {
       throw new Error("Nome, raça, porte e tutor são obrigatórios");
     }
 
@@ -26,9 +18,7 @@ class AnimalService {
       throw new Error("Idade inválida");
     }
 
-    if (!["pequeno", "medio", "grande"].includes(
-      data.porte.trim().toLowerCase(),
-    )) {
+    if (!["pequeno", "medio", "grande"].includes(data.porte.trim().toLowerCase())) {
       throw new Error("Porte inválido");
     }
   }
@@ -70,15 +60,13 @@ class AnimalService {
       .sort({ createdAt: -1 });
   }
 
-  async getById(
-    id: string,
-    user: { id: string; role: UserRole },
-  ) {
+  async getById(id: string, user: { id: string; role: UserRole }) {
     assertObjectId(id, "Pet");
 
-    const animal = await Animal.findOne(
-      this.scope(user, id),
-    ).populate("cliente", "name email telefone foto");
+    const animal = await Animal.findOne(this.scope(user, id)).populate(
+      "cliente",
+      "name email telefone foto",
+    );
 
     if (!animal) {
       throw notFound("Pet não encontrado");
@@ -125,9 +113,7 @@ class AnimalService {
     }
 
     if (data.foto !== undefined) {
-      payload.foto = data.foto.trim()
-        ? validateStoredImagePath(data.foto)
-        : "";
+      payload.foto = data.foto.trim() ? validateStoredImagePath(data.foto) : "";
     }
 
     if (data.cliente !== undefined && user.role === "admin") {
@@ -135,14 +121,10 @@ class AnimalService {
       payload.cliente = data.cliente;
     }
 
-    const animal = await Animal.findOneAndUpdate(
-      this.scope(user, id),
-      payload,
-      {
-        new: true,
-        runValidators: true,
-      },
-    );
+    const animal = await Animal.findOneAndUpdate(this.scope(user, id), payload, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!animal) {
       throw notFound("Pet não encontrado");
@@ -151,21 +133,14 @@ class AnimalService {
     return animal;
   }
 
-  async delete(
-    id: string,
-    user: { id: string; role: UserRole },
-  ) {
+  async delete(id: string, user: { id: string; role: UserRole }) {
     assertObjectId(id, "Pet");
 
     if (await Agendamento.exists({ animal: id })) {
-      throw conflict(
-        "Pet possui agendamentos e não pode ser removido",
-      );
+      throw conflict("Pet possui agendamentos e não pode ser removido");
     }
 
-    const animal = await Animal.findOneAndDelete(
-      this.scope(user, id),
-    );
+    const animal = await Animal.findOneAndDelete(this.scope(user, id));
 
     if (!animal) {
       throw notFound("Pet não encontrado");

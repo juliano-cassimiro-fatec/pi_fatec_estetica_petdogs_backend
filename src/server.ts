@@ -13,7 +13,7 @@ async function startServer(): Promise<void> {
     console.log(`Server is running on port ${PORT}`);
   });
 }
- 
+
 startServer().catch((error: unknown) => {
   console.error("Error starting server:", error);
   process.exit(1);

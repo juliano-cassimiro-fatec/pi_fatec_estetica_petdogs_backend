@@ -4,10 +4,7 @@ import Profissional from "../models/profissional.model.js";
 import Animal from "../models/animal.model.js";
 import Agendamento from "../models/agendamento.model.js";
 
-import type {
-  ICreateClienteDTO,
-  IUpdateClienteDTO,
-} from "../models/cliente.types.js";
+import type { ICreateClienteDTO, IUpdateClienteDTO } from "../models/cliente.types.js";
 
 import { env } from "../config/env.js";
 import { notFound, conflict } from "../errors/app-error.js";
@@ -104,9 +101,7 @@ class ClienteService {
     }
 
     if (data.foto !== undefined) {
-      payload.foto = data.foto.trim()
-        ? validateStoredImagePath(data.foto)
-        : "";
+      payload.foto = data.foto.trim() ? validateStoredImagePath(data.foto) : "";
     }
 
     if (data.senha?.trim()) {
@@ -114,18 +109,14 @@ class ClienteService {
       payload.senha = await authService.hashPassword(data.senha);
     }
 
-    if(data.ative !== undefined) {
+    if (data.ative !== undefined) {
       payload.ative = data.ative;
     }
 
-    const cliente = await Cliente.findByIdAndUpdate(
-      id,
-      payload,
-      {
-        new: true,
-        runValidators: true,
-      },
-    );
+    const cliente = await Cliente.findByIdAndUpdate(id, payload, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!cliente) {
       throw notFound("Cliente não encontrado");
@@ -141,9 +132,7 @@ class ClienteService {
     const hasAgendamento = await Agendamento.exists({ cliente: id });
 
     if (hasAnimal || hasAgendamento) {
-      throw conflict(
-        "Cliente possui pets ou agendamentos e não pode ser removido",
-      );
+      throw conflict("Cliente possui pets ou agendamentos e não pode ser removido");
     }
 
     const cliente = await Cliente.findByIdAndDelete(id);
