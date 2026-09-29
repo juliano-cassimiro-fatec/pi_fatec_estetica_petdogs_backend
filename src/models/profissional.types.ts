@@ -13,6 +13,7 @@ export interface IProfissional {
   almoco_fim?: string;
   disponibilidade_inicio?: Date;
   disponibilidade_fim?: Date;
+  authVersion: number;
   createdAt: Date;
   updatedAt?: Date;
 }

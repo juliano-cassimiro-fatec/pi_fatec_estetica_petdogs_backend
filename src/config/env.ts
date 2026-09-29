@@ -1,9 +1,13 @@
 const required = [
   "MONGO_URI",
   "JWT_SECRET",
+  "JWT_EXPIRES_IN",
+  "JWT_ISSUER",
+  "JWT_AUDIENCE",
   "ADMIN_EMAIL",
   "ADMIN_PASSWORD",
   "ADMIN_NAME",
+  "FRONTEND_URL",
   "UPLOAD_DIR",
 ] as const;
 
@@ -19,6 +23,11 @@ export function validateEnvironment(): void {
 
 export function env(name: (typeof required)[number]): string {
   const value = process.env[name];
-  if (!value) throw new Error(`Variável de ambiente ${name} não configurada`);
+  if (value === undefined) throw new Error(`Variável de ambiente ${name} não configurada`);
   return value;
+}
+
+export function optionalEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value || undefined;
 }

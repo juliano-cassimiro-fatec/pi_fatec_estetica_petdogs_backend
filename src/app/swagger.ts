@@ -180,6 +180,17 @@ export const openApiDocument = {
         },
       },
     },
+    "/admin/users": {
+      get: {
+        summary: "Lista clientes e profissionais (admin)",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": { description: "Usuários ativos" },
+          "401": { description: "Token inválido ou ausente" },
+          "403": { description: "Acesso negado" },
+        },
+      },
+    },
     "/clientes": {
       get: {
         summary: "Lista clientes (admin)",

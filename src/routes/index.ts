@@ -1,5 +1,6 @@
 import { Router } from "express";
 import agendamentoRoutes from "./agendamento.routes.js";
+import adminRoutes from "./admin.routes.js";
 import animalRoutes from "./animal.routes.js";
 import authRoutes from "./auth.routes.js";
 import clienteRoutes from "./cliente.routes.js";
@@ -17,6 +18,7 @@ routes.get("/health", (_request, response) => {
 });
 
 routes.use("/auth", authRoutes);
+routes.use("/admin", adminRoutes);
 routes.use("/clientes", clienteRoutes);
 routes.use("/pets", animalRoutes);
 routes.use("/animais", animalRoutes);

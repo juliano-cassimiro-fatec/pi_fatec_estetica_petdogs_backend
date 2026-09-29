@@ -75,6 +75,12 @@ const profissionalSchema = new Schema<IProfissional>(
     disponibilidade_fim: {
       type: Date,
     },
+    authVersion: {
+      type: Number,
+      default: 0,
+      required: true,
+      select: false,
+    },
   },
   { timestamps: true },
 );

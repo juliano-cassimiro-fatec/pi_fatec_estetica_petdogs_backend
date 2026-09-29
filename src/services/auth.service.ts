@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import Cliente from "../models/cliente.model.js";
+import PasswordResetToken from "../models/password-reset-token.model.js";
 import Profissional from "../models/profissional.model.js";
 import type {
   IForgotPasswordDTO,
@@ -8,17 +9,37 @@ import type {
   IResetPasswordDTO,
   UserRole,
 } from "../models/auth.types.js";
-import { badRequest } from "../errors/app-error.js";
 import { env } from "../config/env.js";
+import { badRequest, conflict, unauthorized } from "../errors/app-error.js";
 import { assertEmail } from "../utils/validation.js";
 import { validateStoredImagePath } from "./upload.service.js";
+import emailService from "./email.service.js";
 
-const TOKEN_EXPIRATION_SECONDS = 60 * 60 * 24;
+const RESET_TOKEN_EXPIRATION_MS = 30 * 60 * 1000;
+
+type PersistedRole = Exclude<UserRole, "admin">;
+interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  foto?: string;
+  authVersion?: number;
+}
 
 function derivePassword(password: string, salt: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     crypto.scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key)));
   });
+}
+
+function parseDuration(value: string): number {
+  const match = /^(\d+)(s|m|h|d)$/.exec(value);
+  if (!match) throw new Error("JWT_EXPIRES_IN deve usar o formato 15m, 1h ou 7d");
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const multiplier = unit === "s" ? 1 : unit === "m" ? 60 : unit === "h" ? 3600 : 86400;
+  return amount * multiplier;
 }
 
 class AuthService {
@@ -30,8 +51,8 @@ class AuthService {
   }
 
   public assertPassword(password: string): void {
-    if (!password || password.length < 6) {
-      throw badRequest("A senha deve ter pelo menos 6 caracteres");
+    if (!password || password.length < 8) {
+      throw badRequest("A senha deve ter pelo menos 8 caracteres");
     }
   }
 
@@ -43,269 +64,280 @@ class AuthService {
 
   private async comparePassword(password: string, storedPassword: string): Promise<boolean> {
     const [algorithm, salt, hash] = storedPassword.split(":");
-
-    if (algorithm !== "scrypt" || !salt || !hash) {
-      return false;
-    }
-
+    if (algorithm !== "scrypt" || !salt || !hash) return false;
     const storedHash = Buffer.from(hash, "hex");
     const derivedHash = await derivePassword(password, salt);
-
     return (
       storedHash.length === derivedHash.length && crypto.timingSafeEqual(storedHash, derivedHash)
     );
   }
 
-  private base64Url(input: Buffer | string): string {
-    return Buffer.from(input).toString("base64url");
-  }
-
-  private createToken(payload: Record<string, unknown>): string {
+  private createToken(user: AuthUser): string {
     const header = { alg: "HS256", typ: "JWT" };
-    const body = {
-      ...payload,
-      exp: Math.floor(Date.now() / 1000) + TOKEN_EXPIRATION_SECONDS,
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      sub: user.id,
+      role: user.role,
+      av: user.authVersion ?? 0,
+      iss: env("JWT_ISSUER"),
+      aud: env("JWT_AUDIENCE"),
+      iat: now,
+      exp: now + parseDuration(env("JWT_EXPIRES_IN")),
     };
-    const unsignedToken = `${this.base64Url(JSON.stringify(header))}.${this.base64Url(JSON.stringify(body))}`;
+    const unsignedToken = `${Buffer.from(JSON.stringify(header)).toString("base64url")}.${Buffer.from(
+      JSON.stringify(payload),
+    ).toString("base64url")}`;
     const signature = crypto
       .createHmac("sha256", env("JWT_SECRET"))
       .update(unsignedToken)
       .digest("base64url");
-
     return `${unsignedToken}.${signature}`;
   }
 
-  private buildSession(user: {
-    id: string;
-    name: string;
-    email: string;
-    role: UserRole;
-    foto?: string | undefined;
-  }) {
+  private buildSession(user: AuthUser) {
     return {
-      user,
-      token: this.createToken({
-        sub: user.id,
+      user: {
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
-      }),
+        ...(user.foto ? { foto: user.foto } : {}),
+      },
+      token: this.createToken(user),
     };
   }
 
-  public async verifyToken(
-    token: string,
-  ): Promise<{ id: string; email: string; name: string; role: UserRole }> {
-    const [header, payload, signature] = token.split(".");
-
-    if (!header || !payload || !signature) {
-      throw new Error("Token inválido");
+  private async findPersistedUser(id: string, role: PersistedRole): Promise<AuthUser | undefined> {
+    if (role === "cliente") {
+      const cliente = await Cliente.findById(id).select("+authVersion");
+      if (!cliente || !cliente.ative) return undefined;
+      return {
+        id: cliente.id,
+        name: cliente.name,
+        email: cliente.email,
+        role,
+        ...(cliente.foto ? { foto: cliente.foto } : {}),
+        authVersion: cliente.authVersion,
+      };
     }
+    const user = await Profissional.findById(id).select("+authVersion");
+    if (!user) return undefined;
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role,
+      ...(user.foto ? { foto: user.foto } : {}),
+      authVersion: user.authVersion,
+    };
+  }
+
+  public async verifyToken(token: string): Promise<AuthUser> {
+    const [encodedHeader, encodedPayload, signature] = token.split(".");
+    if (!encodedHeader || !encodedPayload || !signature) throw unauthorized("Token inválido");
 
     const expectedSignature = crypto
       .createHmac("sha256", env("JWT_SECRET"))
-      .update(`${header}.${payload}`)
+      .update(`${encodedHeader}.${encodedPayload}`)
       .digest("base64url");
-
-    const receivedSignature = Buffer.from(signature);
-    const validSignature = Buffer.from(expectedSignature);
-    if (
-      receivedSignature.length !== validSignature.length ||
-      !crypto.timingSafeEqual(receivedSignature, validSignature)
-    ) {
-      throw new Error("Token inválido");
+    const received = Buffer.from(signature);
+    const expected = Buffer.from(expectedSignature);
+    if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
+      throw unauthorized("Token inválido");
     }
 
-    const decodedHeader: unknown = JSON.parse(Buffer.from(header, "base64url").toString("utf8"));
-    if (
-      typeof decodedHeader !== "object" ||
-      decodedHeader === null ||
-      !("alg" in decodedHeader) ||
-      decodedHeader.alg !== "HS256"
-    )
-      throw new Error("Token inválido");
-    const decodedPayload = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
-      sub?: string;
-      email?: string;
-      name?: string;
-      role?: UserRole;
-      exp?: number;
-    };
+    try {
+      const header = JSON.parse(Buffer.from(encodedHeader, "base64url").toString("utf8")) as {
+        alg?: string;
+        typ?: string;
+      };
+      const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as {
+        sub?: string;
+        role?: UserRole;
+        av?: number;
+        iss?: string;
+        aud?: string;
+        exp?: number;
+      };
+      if (
+        header.alg !== "HS256" ||
+        header.typ !== "JWT" ||
+        !payload.sub ||
+        !payload.role ||
+        !Number.isInteger(payload.av) ||
+        !Number.isFinite(payload.exp) ||
+        payload.iss !== env("JWT_ISSUER") ||
+        payload.aud !== env("JWT_AUDIENCE") ||
+        !["admin", "cliente", "profissional"].includes(payload.role)
+      ) {
+        throw unauthorized("Token inválido");
+      }
+      const expiresAt = payload.exp!;
+      if (expiresAt <= Math.floor(Date.now() / 1000)) throw unauthorized("Token expirado");
 
-    if (
-      !decodedPayload.sub ||
-      !decodedPayload.email ||
-      !decodedPayload.name ||
-      !decodedPayload.exp ||
-      !decodedPayload.role ||
-      !["admin", "profissional", "cliente"].includes(decodedPayload.role)
-    ) {
-      throw new Error("Token inválido");
+      if (payload.role === "admin") {
+        if (payload.sub !== "admin") throw unauthorized("Token inválido");
+        return {
+          id: "admin",
+          name: env("ADMIN_NAME"),
+          email: env("ADMIN_EMAIL").toLowerCase(),
+          role: "admin",
+          authVersion: 0,
+        };
+      }
+
+      const user = await this.findPersistedUser(payload.sub, payload.role);
+      if (!user || user.authVersion !== payload.av) throw unauthorized("Token inválido");
+      return user;
+    } catch (error) {
+      if (error instanceof Error && "statusCode" in error) throw error;
+      throw unauthorized("Token inválido");
     }
-
-    if (decodedPayload.exp < Math.floor(Date.now() / 1000)) {
-      throw new Error("Token expirado");
-    }
-
-    if (decodedPayload.role !== "admin") {
-      const exists =
-        decodedPayload.role === "profissional"
-          ? await Profissional.exists({ _id: decodedPayload.sub })
-          : await Cliente.exists({ _id: decodedPayload.sub });
-      if (!exists) throw new Error("Usuário não encontrado");
-    } else if (decodedPayload.sub !== "admin" || decodedPayload.email !== env("ADMIN_EMAIL"))
-      throw new Error("Token inválido");
-
-    return {
-      id: decodedPayload.sub,
-      email: decodedPayload.email,
-      name: decodedPayload.name,
-      role: decodedPayload.role,
-    };
   }
 
   public async register(data: IRegisterDTO) {
     const name = data.name?.trim();
     const email = this.normalizeEmail(data.email);
-    const password = data.password;
+    if (!name || !data.password) throw badRequest("Nome, e-mail e senha são obrigatórios");
+    this.assertPassword(data.password);
 
-    if (!name || !email || !password) {
-      throw new Error("Nome, e-mail e senha são obrigatórios");
-    }
-
-    this.assertPassword(password);
-
-    const emailInUse = await Cliente.findOne({ email });
-    const professionalEmailInUse = await Profissional.findOne({ email });
-
+    const emailInUse = await Cliente.exists({ email });
+    const professionalEmailInUse = await Profissional.exists({ email });
     if (emailInUse || professionalEmailInUse || email === env("ADMIN_EMAIL").toLowerCase()) {
-      throw new Error("E-mail já cadastrado");
+      throw conflict("E-mail já cadastrado");
     }
 
-    const clientePayload = {
-      name,
-      email,
-      senha: await this.hashPassword(password),
-      role: "cliente" as const,
-      ...(data.telefone?.trim() && {
-        telefone: data.telefone.trim(),
-      }),
-      ...(data.foto?.trim() && {
-        foto: validateStoredImagePath(data.foto),
-      }),
-    };
-
-    const cliente = await Cliente.create(clientePayload);
-
-    return this.buildSession({
-      id: cliente.id,
-      name: cliente.name,
-      email: cliente.email,
-      role: "cliente",
-      foto: cliente.foto,
-    });
+    try {
+      const cliente = await Cliente.create({
+        name,
+        email,
+        senha: await this.hashPassword(data.password),
+        role: "cliente",
+        ...(data.telefone?.trim() ? { telefone: data.telefone.trim() } : {}),
+        ...(data.foto?.trim() ? { foto: validateStoredImagePath(data.foto) } : {}),
+      });
+      return {
+        message: "Usuário cadastrado com sucesso",
+        ...this.buildSession({
+          id: cliente.id,
+          name: cliente.name,
+          email: cliente.email,
+          role: "cliente",
+          ...(cliente.foto ? { foto: cliente.foto } : {}),
+          authVersion: cliente.authVersion,
+        }),
+      };
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === 11000) {
+        throw conflict("E-mail já cadastrado");
+      }
+      throw error;
+    }
   }
 
   public async login(data: ILoginDTO) {
-    const email = data.email?.trim().toLowerCase();
-
-    if (!email || !data.password) {
-      throw new Error("E-mail e senha são obrigatórios");
-    }
+    const email = this.normalizeEmail(data.email);
+    if (!data.password) throw badRequest("E-mail e senha são obrigatórios");
 
     if (email === env("ADMIN_EMAIL").toLowerCase() && data.password === env("ADMIN_PASSWORD")) {
       return this.buildSession({
         id: "admin",
         name: env("ADMIN_NAME"),
-        email: env("ADMIN_EMAIL"),
+        email,
         role: "admin",
+        authVersion: 0,
       });
     }
 
-    const profissional = await Profissional.findOne({ email }).select("+senha");
-
+    const profissional = await Profissional.findOne({ email }).select("+senha +authVersion");
     if (profissional?.senha && (await this.comparePassword(data.password, profissional.senha))) {
       return this.buildSession({
         id: profissional.id,
         name: profissional.name,
         email: profissional.email,
         role: "profissional",
-        foto: profissional.foto,
+        ...(profissional.foto ? { foto: profissional.foto } : {}),
+        authVersion: profissional.authVersion,
       });
     }
 
-    const cliente = await Cliente.findOne({ email }).select("+senha");
-
+    const cliente = await Cliente.findOne({ email, ative: true }).select("+senha +authVersion");
     if (!cliente || !(await this.comparePassword(data.password, cliente.senha))) {
-      throw new Error("Credenciais inválidas");
+      throw unauthorized("Credenciais inválidas");
     }
-
     return this.buildSession({
       id: cliente.id,
       name: cliente.name,
       email: cliente.email,
       role: "cliente",
-      foto: cliente.foto,
+      ...(cliente.foto ? { foto: cliente.foto } : {}),
+      authVersion: cliente.authVersion,
     });
   }
 
   public async forgotPassword(data: IForgotPasswordDTO) {
-    const email = data.email?.trim().toLowerCase();
-
-    if (!email) throw badRequest("E-mail inválido");
-    assertEmail(email);
-
-    const cliente = await Cliente.findOne({ email });
-
+    const email = this.normalizeEmail(data.email);
     const genericResponse = {
-      message: "Se o e-mail existir, as instruções de recuperação serão enviadas",
+      message: "Se o e-mail estiver cadastrado, enviaremos instruções para redefinição.",
     };
-    if (!cliente) return genericResponse;
+    const cliente = await Cliente.findOne({ email, ative: true });
+    const profissional = cliente ? undefined : await Profissional.findOne({ email });
+    const user = cliente ?? profissional;
+    const role: PersistedRole | undefined = cliente
+      ? "cliente"
+      : profissional
+        ? "profissional"
+        : undefined;
+    if (!user || !role) return genericResponse;
 
-    const plainToken = crypto.randomBytes(32).toString("hex");
-    const resetPasswordToken = crypto.createHash("sha256").update(plainToken).digest("hex");
-
-    await Cliente.findByIdAndUpdate(cliente.id, {
-      resetPasswordToken,
-      resetPasswordExpires: new Date(Date.now() + 1000 * 60 * 30),
+    const plainToken = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = crypto.createHash("sha256").update(plainToken).digest("hex");
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRATION_MS);
+    await PasswordResetToken.deleteMany({
+      userId: user.id,
+      userRole: role,
+      usedAt: { $exists: false },
     });
+    await PasswordResetToken.create({ userId: user.id, userRole: role, tokenHash, expiresAt });
 
-    const webhook = process.env.PASSWORD_RESET_WEBHOOK;
-    if (webhook) {
-      void fetch(webhook, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, token: plainToken }),
-      }).catch((error: unknown) => console.error("Falha ao entregar recuperação de senha", error));
+    if (emailService.isConfigured()) {
+      const resetUrl = new URL("/reset-password", env("FRONTEND_URL"));
+      resetUrl.searchParams.set("token", plainToken);
+      try {
+        await emailService.sendPasswordResetEmail(email, resetUrl.toString());
+      } catch (error) {
+        console.error(
+          "Falha ao enviar e-mail de recuperação",
+          error instanceof Error ? error.message : error,
+        );
+      }
     }
     return genericResponse;
   }
 
   public async resetPassword(data: IResetPasswordDTO) {
-    if (!data.token) {
-      throw new Error("Token é obrigatório");
-    }
-
+    if (!data.token?.trim()) throw badRequest("Token é obrigatório");
     this.assertPassword(data.password);
+    const tokenHash = crypto.createHash("sha256").update(data.token).digest("hex");
+    const resetToken = await PasswordResetToken.findOneAndUpdate(
+      { tokenHash, expiresAt: { $gt: new Date() }, usedAt: { $exists: false } },
+      { usedAt: new Date() },
+      { new: true },
+    ).select("+tokenHash");
+    if (!resetToken) throw badRequest("Token inválido ou expirado");
 
-    const resetPasswordToken = crypto.createHash("sha256").update(data.token).digest("hex");
-    const cliente = await Cliente.findOne({
-      resetPasswordToken,
-      resetPasswordExpires: { $gt: new Date() },
-    }).select("+resetPasswordToken +resetPasswordExpires");
-
-    if (!cliente) {
-      throw new Error("Token inválido ou expirado");
-    }
-
-    await Cliente.findByIdAndUpdate(cliente.id, {
-      senha: await this.hashPassword(data.password),
-      $unset: {
-        resetPasswordToken: "",
-        resetPasswordExpires: "",
-      },
-    });
-
+    const update = { senha: await this.hashPassword(data.password), $inc: { authVersion: 1 } };
+    const user =
+      resetToken.userRole === "cliente"
+        ? await Cliente.findByIdAndUpdate(resetToken.userId, update, {
+            new: true,
+            runValidators: true,
+          })
+        : await Profissional.findByIdAndUpdate(resetToken.userId, update, {
+            new: true,
+            runValidators: true,
+          });
+    if (!user) throw badRequest("Token inválido ou expirado");
     return { message: "Senha redefinida com sucesso" };
   }
 }
