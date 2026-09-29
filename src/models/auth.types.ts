@@ -18,6 +18,7 @@ export interface IForgotPasswordDTO {
 }
 
 export interface IResetPasswordDTO {
-  token: string;
+  email: string;
+  code: string;
   password: string;
 }

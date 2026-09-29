@@ -5,8 +5,6 @@ export interface ICliente {
   foto?: string;
   role: "cliente";
   senha: string;
-  resetPasswordToken?: string;
-  resetPasswordExpires?: Date;
   authVersion: number;
   createdAt: Date;
   updatedAt?: Date;

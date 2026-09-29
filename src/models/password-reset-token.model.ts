@@ -28,6 +28,11 @@ const passwordResetTokenSchema = new Schema<IPasswordResetToken>(
       type: Date,
       default: undefined,
     },
+    attempts: {
+      type: Number,
+      default: 0,
+      required: true,
+    },
   },
   { timestamps: true },
 );

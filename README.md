@@ -60,7 +60,7 @@ Todas estão documentadas em [`.env.example`](.env.example); `.env` está ignora
 | `JWT_EXPIRES_IN`                              | Duração do access token: `15m`, `1h` ou `7d`.                                       |
 | `JWT_ISSUER` / `JWT_AUDIENCE`                 | Claims validadas em todo JWT.                                                       |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | Administrador configurado pelo ambiente. A senha deve ter 12+ caracteres.           |
-| `FRONTEND_URL`                                | Origem CORS permitida e base do link `/reset-password`.                             |
+| `FRONTEND_URL`                                | Origem CORS permitida e URL base do frontend.                                       |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`       | Servidor SMTP; Gmail usa `smtp.gmail.com`, `587`, `false`.                          |
 | `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`     | Conta SMTP, App Password e remetente. Nunca exponha esses dados ao frontend ou Git. |
 | `UPLOAD_DIR`                                  | Diretório de imagens carregadas.                                                    |
@@ -71,7 +71,7 @@ Para Gmail, crie uma App Password na conta Google com 2FA habilitado e use-a em 
 
 O frontend não faz parte deste repositório. Quando ele estiver disponível, configure a URL da API como `http://localhost:3001/api/v1`, defina `FRONTEND_URL` com a origem efetiva (por exemplo, `http://localhost:5173`) e envie `Authorization: Bearer <token>` apenas nas rotas protegidas. O CORS permite apenas essa origem, não `*`.
 
-Fluxo esperado no frontend: cadastro/login → armazenar sessão de modo consciente (o projeto não fornece uma política de storage) → interceptor/wrapper adiciona o Bearer token → recebe `401` e limpa a sessão → logout remove token e estado. As telas de login, cadastro, recuperação e rotas protegidas devem ser implementadas no repositório React correspondente, sem expor `JWT_SECRET` ou SMTP.
+Fluxo esperado no frontend: cadastro/login → armazenar sessão de modo consciente (o projeto não fornece uma política de storage) → interceptor/wrapper adiciona o Bearer token → recebe `401` e limpa a sessão → logout remove token e estado. Para implementar a recuperação de senha com OTP, siga o guia em [`docs/frontend-otp.md`](docs/frontend-otp.md). Nunca exponha `JWT_SECRET` ou credenciais SMTP no frontend.
 
 ## Autenticação, autorização e recuperação
 
@@ -79,8 +79,8 @@ Fluxo esperado no frontend: cadastro/login → armazenar sessão de modo conscie
 - `POST /api/v1/auth/login` autentica cliente, profissional ou administrador de ambiente e retorna `{ user, token }`.
 - O JWT contém somente `sub`, `role`, versão da sessão, emissor, público, emissão e expiração. A cada requisição, o middleware valida assinatura, expiração, issuer/audience e consulta o usuário; não confia em dados fornecidos pelo cliente.
 - O middleware `ensureRoles` aplica RBAC. Por exemplo, `GET /api/v1/admin/users`, `/clientes` e `/relatorios` são exclusivos de `admin`; usuário autenticado sem papel retorna `403`, enquanto token ausente/inválido retorna `401`.
-- `POST /api/v1/auth/forgot-password` devolve a mesma mensagem para e-mails existentes ou não. Um token aleatório de 32 bytes é hasheado com SHA-256 e gravado em `PasswordResetToken`, com TTL de 30 minutos e uso único.
-- `POST /api/v1/auth/reset-password` reivindica o token atomicamente, faz novo hash scrypt e incrementa a versão de sessão, invalidando JWTs anteriores daquele usuário.
+- `POST /api/v1/auth/forgot-password` devolve a mesma mensagem para e-mails existentes ou não. Para contas existentes, envia um OTP de 6 dígitos; o hash HMAC é gravado em `PasswordResetToken` por 10 minutos, com uso único e até 5 tentativas.
+- `POST /api/v1/auth/reset-password` recebe e-mail, OTP e nova senha, reivindica o código atomicamente e incrementa a versão de sessão, invalidando JWTs anteriores daquele usuário.
 - Login, cadastro, esqueci senha e redefinição usam limite em memória de 10 requisições por IP a cada 15 minutos. Em implantação com múltiplas instâncias, substitua-o por um rate limiter compartilhado (Redis, por exemplo).
 
 ## Endpoints principais
@@ -92,8 +92,8 @@ Base: `http://localhost:3001/api/v1`.
 | `POST /auth/register`        | Não          | `{ "name", "email", "password", "telefone?", "foto?" }`; `201` com mensagem, usuário seguro e JWT. Erros: `400`, `409`, `429`. |
 | `POST /auth/login`           | Não          | `{ "email", "password" }`; `200` com usuário seguro e JWT. Erros: `400`, `401`, `429`.                                         |
 | `GET /auth/me`               | Bearer       | Usuário da sessão; `401` para token ausente, inválido ou expirado.                                                             |
-| `POST /auth/forgot-password` | Não          | `{ "email" }`; sempre `200` com mensagem genérica. Erros: `400`, `429`.                                                        |
-| `POST /auth/reset-password`  | Não          | `{ "token", "password" }`; `200` após redefinir. Erros: `400`, `429`.                                                          |
+| `POST /auth/forgot-password` | Não          | `{ "email" }`; `200` com mensagem genérica. Erros: `400`, `429`.                                                               |
+| `POST /auth/reset-password`  | Não          | `{ "email", "code", "password" }`; `200` após redefinir. Erros: `400`, `429`.                                                  |
 | `GET /admin/users`           | Bearer admin | Clientes ativos e profissionais sem hashes. Erros: `401`, `403`.                                                               |
 
 As demais rotas de pets, serviços, agendamentos, profissionais, clientes, relatórios e uploads seguem o mesmo prefixo e estão em `/api/docs`.
@@ -116,7 +116,7 @@ Os testes unitários disponíveis verificam que a senha não é persistida em te
 2. Faça `POST /auth/login`, copie o `token` e chame `GET /auth/me` com `Authorization: Bearer <token>`.
 3. Com um token de cliente, chame `GET /admin/users` e confirme `403`; sem token, confirme `401`.
 4. Faça login com `ADMIN_EMAIL`/`ADMIN_PASSWORD` e chame `GET /admin/users` para confirmar `200`.
-5. Faça `POST /auth/forgot-password`; para uma conta existente verifique a caixa SMTP, abra o link e envie seu token e nova senha a `POST /auth/reset-password`.
+5. Faça `POST /auth/forgot-password`; para uma conta existente verifique a caixa SMTP e envie e-mail, código e nova senha a `POST /auth/reset-password`.
 6. Confirme que a senha antiga falha, a nova senha autentica e o token anterior passa a retornar `401`.
 
 ## Troubleshooting

@@ -15,7 +15,8 @@ import { assertEmail } from "../utils/validation.js";
 import { validateStoredImagePath } from "./upload.service.js";
 import emailService from "./email.service.js";
 
-const RESET_TOKEN_EXPIRATION_MS = 30 * 60 * 1000;
+const RESET_CODE_EXPIRATION_MS = 10 * 60 * 1000;
+const RESET_CODE_MAX_ATTEMPTS = 5;
 
 type PersistedRole = Exclude<UserRole, "admin">;
 interface AuthUser {
@@ -278,7 +279,7 @@ class AuthService {
   public async forgotPassword(data: IForgotPasswordDTO) {
     const email = this.normalizeEmail(data.email);
     const genericResponse = {
-      message: "Se o e-mail estiver cadastrado, enviaremos instruções para redefinição.",
+      message: "Se o e-mail estiver cadastrado, enviaremos um código para redefinição.",
     };
     const cliente = await Cliente.findOne({ email, ative: true });
     const profissional = cliente ? undefined : await Profissional.findOne({ email });
@@ -290,9 +291,12 @@ class AuthService {
         : undefined;
     if (!user || !role) return genericResponse;
 
-    const plainToken = crypto.randomBytes(32).toString("base64url");
-    const tokenHash = crypto.createHash("sha256").update(plainToken).digest("hex");
-    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRATION_MS);
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const tokenHash = crypto
+      .createHmac("sha256", env("JWT_SECRET"))
+      .update(`${user.id}:${code}`)
+      .digest("hex");
+    const expiresAt = new Date(Date.now() + RESET_CODE_EXPIRATION_MS);
     await PasswordResetToken.deleteMany({
       userId: user.id,
       userRole: role,
@@ -301,10 +305,8 @@ class AuthService {
     await PasswordResetToken.create({ userId: user.id, userRole: role, tokenHash, expiresAt });
 
     if (emailService.isConfigured()) {
-      const resetUrl = new URL("/reset-password", env("FRONTEND_URL"));
-      resetUrl.searchParams.set("token", plainToken);
       try {
-        await emailService.sendPasswordResetEmail(email, resetUrl.toString());
+        await emailService.sendPasswordResetCode(email, code);
       } catch (error) {
         console.error(
           "Falha ao enviar e-mail de recuperação",
@@ -316,15 +318,49 @@ class AuthService {
   }
 
   public async resetPassword(data: IResetPasswordDTO) {
-    if (!data.token?.trim()) throw badRequest("Token é obrigatório");
+    if (!/^\d{6}$/.test(data.code ?? "")) throw badRequest("Código inválido ou expirado");
     this.assertPassword(data.password);
-    const tokenHash = crypto.createHash("sha256").update(data.token).digest("hex");
+    const email = this.normalizeEmail(data.email);
+    const cliente = await Cliente.findOne({ email, ative: true });
+    const profissional = cliente ? undefined : await Profissional.findOne({ email });
+    const account = cliente ?? profissional;
+    const role: PersistedRole | undefined = cliente
+      ? "cliente"
+      : profissional
+        ? "profissional"
+        : undefined;
+    if (!account || !role) throw badRequest("Código inválido ou expirado");
+
+    const tokenHash = crypto
+      .createHmac("sha256", env("JWT_SECRET"))
+      .update(`${account.id}:${data.code}`)
+      .digest("hex");
+    const now = new Date();
     const resetToken = await PasswordResetToken.findOneAndUpdate(
-      { tokenHash, expiresAt: { $gt: new Date() }, usedAt: { $exists: false } },
-      { usedAt: new Date() },
+      {
+        userId: account.id,
+        userRole: role,
+        tokenHash,
+        expiresAt: { $gt: now },
+        usedAt: { $exists: false },
+        attempts: { $lt: RESET_CODE_MAX_ATTEMPTS },
+      },
+      { usedAt: now },
       { new: true },
     ).select("+tokenHash");
-    if (!resetToken) throw badRequest("Token inválido ou expirado");
+    if (!resetToken) {
+      await PasswordResetToken.updateOne(
+        {
+          userId: account.id,
+          userRole: role,
+          expiresAt: { $gt: now },
+          usedAt: { $exists: false },
+          attempts: { $lt: RESET_CODE_MAX_ATTEMPTS },
+        },
+        { $inc: { attempts: 1 } },
+      );
+      throw badRequest("Código inválido ou expirado");
+    }
 
     const update = { senha: await this.hashPassword(data.password), $inc: { authVersion: 1 } };
     const user =

@@ -151,7 +151,7 @@ export const openApiDocument = {
     },
     "/auth/forgot-password": {
       post: {
-        summary: "Envia instruções de recuperação sem revelar se a conta existe",
+        summary: "Envia código OTP de recuperação sem revelar se a conta existe",
         requestBody: {
           required: true,
           content: {
@@ -173,10 +173,26 @@ export const openApiDocument = {
     },
     "/auth/reset-password": {
       post: {
-        summary: "Redefine senha com token",
+        summary: "Redefine senha com código OTP",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "code", "password"],
+                properties: {
+                  email: { type: "string", format: "email" },
+                  code: { type: "string", pattern: "^\\d{6}$" },
+                  password: { type: "string", minLength: 8 },
+                },
+              },
+            },
+          },
+        },
         responses: {
           "200": { description: "Senha redefinida" },
-          "400": { description: "Token ou senha inválidos" },
+          "400": { description: "Código inválido/expirado ou senha inválida" },
         },
       },
     },

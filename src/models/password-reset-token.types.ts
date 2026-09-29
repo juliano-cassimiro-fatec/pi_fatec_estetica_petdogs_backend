@@ -6,6 +6,7 @@ export interface IPasswordResetToken {
   tokenHash: string;
   expiresAt: Date;
   usedAt?: Date;
+  attempts: number;
   createdAt: Date;
   updatedAt?: Date;
 }

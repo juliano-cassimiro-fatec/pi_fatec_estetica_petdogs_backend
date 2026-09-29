@@ -55,7 +55,10 @@ async function command(socket: SmtpSocket, value: string, expected: number[]): P
   socket.write(`${value}\r\n`);
   const response = await waitForResponse(socket);
   const code = Number(response.slice(0, 3));
-  if (!expected.includes(code)) throw new Error(`SMTP recusou o comando com código ${code}`);
+  if (!expected.includes(code)) {
+    const detail = response.trim().replace(/\r?\n/g, " ");
+    throw new Error(`SMTP recusou o comando (${code}): ${detail}`);
+  }
   return response;
 }
 
@@ -80,7 +83,7 @@ class EmailService {
     return Boolean(getMailConfiguration());
   }
 
-  public async sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
+  public async sendPasswordResetCode(email: string, code: string): Promise<void> {
     const configuration = getMailConfiguration();
     if (!configuration) throw new Error("Serviço de e-mail não configurado");
 
@@ -112,7 +115,7 @@ class EmailService {
       const content = [
         `From: ${encodeHeader("PetDogs Estética")} <${configuration.from}>`,
         `To: <${email}>`,
-        `Subject: ${encodeHeader("Redefinição de senha - PetDogs")}`,
+        `Subject: ${encodeHeader("Código para redefinir sua senha - PetDogs")}`,
         `Message-ID: ${messageId}`,
         "MIME-Version: 1.0",
         "Content-Type: text/plain; charset=UTF-8",
@@ -120,7 +123,8 @@ class EmailService {
         "",
         "Recebemos uma solicitação para redefinir a senha da sua conta PetDogs.",
         "",
-        `Use o link abaixo em até 30 minutos: ${resetUrl}`,
+        `Seu código de verificação é: ${code}`,
+        "Ele expira em 10 minutos e pode ser usado uma única vez.",
         "",
         "Se você não solicitou esta alteração, ignore este e-mail. Sua senha permanecerá inalterada.",
       ].join("\r\n");

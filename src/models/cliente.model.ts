@@ -35,14 +35,6 @@ const clienteSchema = new Schema<ICliente>(
       default: "cliente",
       required: true,
     },
-    resetPasswordToken: {
-      type: String,
-      select: false,
-    },
-    resetPasswordExpires: {
-      type: Date,
-      select: false,
-    },
     authVersion: {
       type: Number,
       default: 0,
