@@ -28,6 +28,10 @@ const passwordResetTokenSchema = new Schema<IPasswordResetToken>(
       type: Date,
       default: undefined,
     },
+    verifiedAt: {
+      type: Date,
+      default: undefined,
+    },
     attempts: {
       type: Number,
       default: 0,

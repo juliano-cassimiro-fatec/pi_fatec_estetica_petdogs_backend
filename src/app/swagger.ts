@@ -55,6 +55,43 @@ export const openApiDocument = {
           role: { type: "string", enum: ["profissional"] },
         },
       },
+      ProfissionalInput: {
+        type: "object",
+        required: ["name", "email", "password", "especialidade"],
+        properties: {
+          name: { type: "string" },
+          email: { type: "string", format: "email" },
+          password: { type: "string", minLength: 8 },
+          telefone: { type: "string" },
+          foto: { type: "string", description: "Caminho retornado por POST /uploads." },
+          especialidade: { type: "string" },
+          dias_trabalho: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 } },
+          horario_inicio: { type: "string", example: "08:00" },
+          horario_fim: { type: "string", example: "18:00" },
+          almoco_inicio: { type: "string", example: "12:00" },
+          almoco_fim: { type: "string", example: "13:00" },
+          disponibilidade_inicio: { type: "string", format: "date-time" },
+          disponibilidade_fim: { type: "string", format: "date-time" },
+        },
+      },
+      ProfissionalUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          email: { type: "string", format: "email" },
+          password: { type: "string", minLength: 8 },
+          telefone: { type: "string" },
+          foto: { type: "string", description: "Caminho retornado por POST /uploads." },
+          especialidade: { type: "string" },
+          dias_trabalho: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 } },
+          horario_inicio: { type: "string", example: "08:00" },
+          horario_fim: { type: "string", example: "18:00" },
+          almoco_inicio: { type: "string", example: "12:00" },
+          almoco_fim: { type: "string", example: "13:00" },
+          disponibilidade_inicio: { type: "string", format: "date-time" },
+          disponibilidade_fim: { type: "string", format: "date-time" },
+        },
+      },
       Pet: {
         type: "object",
         description: "A propriedade foto recebe o caminho retornado por POST /uploads.",
@@ -69,6 +106,26 @@ export const openApiDocument = {
           cliente: { type: "string" },
         },
       },
+      PetUpdate: {
+        type: "object",
+        properties: {
+          nome: { type: "string" },
+          raca: { type: "string" },
+          idade: { type: "integer", minimum: 0 },
+          porte: { type: "string", enum: ["pequeno", "medio", "grande"] },
+          foto: { type: "string", description: "Caminho retornado por POST /uploads." },
+        },
+      },
+      ClienteUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          email: { type: "string", format: "email" },
+          password: { type: "string", minLength: 8 },
+          telefone: { type: "string" },
+          foto: { type: "string", description: "Caminho retornado por POST /uploads." },
+        },
+      },
       Servico: {
         type: "object",
         required: ["name", "descricao", "duracao_min", "preco"],
@@ -78,6 +135,25 @@ export const openApiDocument = {
           descricao: { type: "string" },
           duracao_min: { type: "number" },
           preco: { type: "number" },
+        },
+      },
+      ServicoInput: {
+        type: "object",
+        required: ["name", "descricao", "duracao_min", "preco"],
+        properties: {
+          name: { type: "string" },
+          descricao: { type: "string" },
+          duracao_min: { type: "integer", minimum: 1 },
+          preco: { type: "number", minimum: 0 },
+        },
+      },
+      ServicoUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          descricao: { type: "string" },
+          duracao_min: { type: "integer", minimum: 1 },
+          preco: { type: "number", minimum: 0 },
         },
       },
       Agendamento: {
@@ -93,6 +169,26 @@ export const openApiDocument = {
           cliente: { type: "string" },
         },
       },
+      AgendamentoInput: {
+        type: "object",
+        required: ["data_hora", "animal", "servico", "profissional"],
+        properties: {
+          data_hora: { type: "string", format: "date-time" },
+          animal: { type: "string", description: "ID do pet." },
+          servico: { type: "string", description: "ID do serviço." },
+          profissional: { type: "string", description: "ID do profissional." },
+        },
+      },
+      AgendamentoUpdate: {
+        type: "object",
+        properties: {
+          data_hora: { type: "string", format: "date-time" },
+          animal: { type: "string" },
+          servico: { type: "string" },
+          profissional: { type: "string" },
+          status: { type: "string", enum: ["agendado", "cancelado"] },
+        },
+      },
       Relatorio: {
         type: "object",
         properties: {
@@ -103,14 +199,32 @@ export const openApiDocument = {
           total_faltas: { type: "number" },
         },
       },
-      Error: { type: "object", properties: { message: { type: "string" } } },
+      Error: {
+        type: "object",
+        properties: {
+          message: { type: "string" },
+          code: { type: "string" },
+        },
+      },
     },
   },
   paths: {
     "/health": {
       get: {
         summary: "Verifica se a API está online",
-        responses: { "200": { description: "API online" } },
+        responses: {
+          "200": {
+            description: "API online",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { message: { type: "string", example: "API Rodando OK!!" } },
+                },
+              },
+            },
+          },
+        },
       },
     },
     "/auth/register": {
@@ -171,19 +285,43 @@ export const openApiDocument = {
         },
       },
     },
-    "/auth/reset-password": {
+    "/auth/verify-reset-code": {
       post: {
-        summary: "Redefine senha com código OTP",
+        summary: "Valida OTP de recuperação e autoriza a próxima etapa",
         requestBody: {
           required: true,
           content: {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["email", "code", "password"],
+                required: ["email", "code"],
                 properties: {
                   email: { type: "string", format: "email" },
                   code: { type: "string", pattern: "^\\d{6}$" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "OTP validado; retorna resetToken temporário" },
+          "400": { description: "Código inválido ou expirado" },
+          "429": { description: "Limite excedido" },
+        },
+      },
+    },
+    "/auth/reset-password": {
+      post: {
+        summary: "Redefine senha usando autorização temporária após validar o OTP",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["resetToken", "password"],
+                properties: {
+                  resetToken: { type: "string" },
                   password: { type: "string", minLength: 8 },
                 },
               },
@@ -192,7 +330,7 @@ export const openApiDocument = {
         },
         responses: {
           "200": { description: "Senha redefinida" },
-          "400": { description: "Código inválido/expirado ou senha inválida" },
+          "400": { description: "Token temporário inválido/expirado ou senha inválida" },
         },
       },
     },
@@ -211,24 +349,51 @@ export const openApiDocument = {
       get: {
         summary: "Lista clientes (admin)",
         security: [{ bearerAuth: [] }],
-        responses: { "200": { description: "Clientes" }, "403": { description: "Acesso negado" } },
+        responses: {
+          "200": { description: "Clientes" },
+          "401": { description: "Não autenticado" },
+          "403": { description: "Acesso negado" },
+        },
       },
       post: {
         summary: "Cria cliente (admin)",
         security: [{ bearerAuth: [] }],
-        responses: { "201": { description: "Cliente criado" } },
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/Register" } } },
+        },
+        responses: {
+          "201": { description: "Cliente criado" },
+          "400": { description: "Dados inválidos" },
+          "409": { description: "E-mail já cadastrado" },
+        },
       },
     },
     "/clientes/me": {
       get: {
         summary: "Busca perfil do cliente autenticado",
         security: [{ bearerAuth: [] }],
-        responses: { "200": { description: "Cliente" } },
+        responses: {
+          "200": { description: "Cliente" },
+          "401": { description: "Não autenticado" },
+          "403": { description: "Acesso negado" },
+        },
       },
       put: {
         summary: "Atualiza perfil do cliente autenticado",
         security: [{ bearerAuth: [] }],
-        responses: { "200": { description: "Cliente atualizado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ClienteUpdate" } },
+          },
+        },
+        responses: {
+          "200": { description: "Cliente atualizado" },
+          "400": { description: "Dados inválidos" },
+          "401": { description: "Não autenticado" },
+          "403": { description: "Acesso negado" },
+        },
       },
     },
     "/clientes/{id}": {
@@ -242,10 +407,20 @@ export const openApiDocument = {
         summary: "Atualiza cliente (admin)",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Cliente atualizado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ClienteUpdate" } },
+          },
+        },
+        responses: {
+          "200": { description: "Cliente atualizado" },
+          "400": { description: "Dados inválidos" },
+          "403": { description: "Acesso negado" },
+        },
       },
       delete: {
-        summary: "Remove cliente (admin)",
+        summary: "Desativa cliente (soft delete, admin)",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         responses: { "200": { description: "Cliente removido" } },
@@ -261,6 +436,7 @@ export const openApiDocument = {
         summary: "Cria pet",
         security: [{ bearerAuth: [] }],
         requestBody: {
+          required: true,
           content: { "application/json": { schema: { $ref: "#/components/schemas/Pet" } } },
         },
         responses: { "201": { description: "Pet criado" } },
@@ -277,6 +453,12 @@ export const openApiDocument = {
         summary: "Atualiza pet",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/PetUpdate" } },
+          },
+        },
         responses: { "200": { description: "Pet atualizado" } },
       },
       delete: {
@@ -286,12 +468,24 @@ export const openApiDocument = {
         responses: { "200": { description: "Pet removido" } },
       },
     },
+    "/animais": { $ref: "#/paths/~1pets" },
+    "/animais/{id}": { $ref: "#/paths/~1pets~1{id}" },
     "/servicos": {
       get: { summary: "Lista serviços", responses: { "200": { description: "Serviços" } } },
       post: {
         summary: "Cria serviço (admin)",
         security: [{ bearerAuth: [] }],
-        responses: { "201": { description: "Serviço criado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ServicoInput" } },
+          },
+        },
+        responses: {
+          "201": { description: "Serviço criado" },
+          "400": { description: "Dados inválidos" },
+          "403": { description: "Acesso negado" },
+        },
       },
     },
     "/servicos/{id}": {
@@ -304,7 +498,16 @@ export const openApiDocument = {
         summary: "Atualiza serviço (admin)",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Serviço atualizado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ServicoUpdate" } },
+          },
+        },
+        responses: {
+          "200": { description: "Serviço atualizado" },
+          "403": { description: "Acesso negado" },
+        },
       },
       delete: {
         summary: "Remove serviço (admin)",
@@ -322,14 +525,35 @@ export const openApiDocument = {
       post: {
         summary: "Cria profissional (admin)",
         security: [{ bearerAuth: [] }],
-        responses: { "201": { description: "Profissional criado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ProfissionalInput" } },
+          },
+        },
+        responses: {
+          "201": { description: "Profissional criado" },
+          "400": { description: "Dados inválidos" },
+          "409": { description: "E-mail já cadastrado" },
+          "403": { description: "Acesso negado" },
+        },
       },
     },
     "/profissionais/me": {
       put: {
         summary: "Atualiza perfil do profissional autenticado",
         security: [{ bearerAuth: [] }],
-        responses: { "200": { description: "Profissional atualizado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ProfissionalUpdate" } },
+          },
+        },
+        responses: {
+          "200": { description: "Profissional atualizado" },
+          "400": { description: "Dados inválidos" },
+          "403": { description: "Acesso negado" },
+        },
       },
     },
     "/profissionais/{id}": {
@@ -343,7 +567,16 @@ export const openApiDocument = {
         summary: "Atualiza profissional (admin)",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Profissional atualizado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ProfissionalUpdate" } },
+          },
+        },
+        responses: {
+          "200": { description: "Profissional atualizado" },
+          "403": { description: "Acesso negado" },
+        },
       },
       delete: {
         summary: "Remove profissional (admin)",
@@ -361,7 +594,18 @@ export const openApiDocument = {
       post: {
         summary: "Cria agendamento para o cliente autenticado",
         security: [{ bearerAuth: [] }],
-        responses: { "201": { description: "Agendamento criado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/AgendamentoInput" } },
+          },
+        },
+        responses: {
+          "201": { description: "Agendamento criado" },
+          "400": { description: "Dados ou horário inválidos" },
+          "403": { description: "Acesso negado" },
+          "409": { description: "Horário indisponível" },
+        },
       },
     },
     "/agendamentos/disponibilidade": {
@@ -369,9 +613,21 @@ export const openApiDocument = {
         summary: "Consulta horários disponíveis",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "profissionalId", in: "query", schema: { type: "string" } },
-          { name: "servicoId", in: "query", schema: { type: "string" } },
-          { name: "date", in: "query", schema: { type: "string", format: "date-time" } },
+          {
+            name: "profissionalId",
+            in: "query",
+            required: true,
+            description: "Também aceito como profissional.",
+            schema: { type: "string" },
+          },
+          {
+            name: "servicoId",
+            in: "query",
+            required: true,
+            description: "Também aceito como servico.",
+            schema: { type: "string" },
+          },
+          { name: "date", in: "query", required: true, schema: { type: "string", format: "date" } },
         ],
         responses: { "200": { description: "Disponibilidade" } },
       },
@@ -381,9 +637,14 @@ export const openApiDocument = {
         summary: "Consulta disponibilidade mensal",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "profissionalId", in: "query", schema: { type: "string" } },
-          { name: "servicoId", in: "query", schema: { type: "string" } },
-          { name: "month", in: "query", schema: { type: "string", example: "2026-08" } },
+          { name: "profissionalId", in: "query", required: true, schema: { type: "string" } },
+          { name: "servicoId", in: "query", required: true, schema: { type: "string" } },
+          {
+            name: "month",
+            in: "query",
+            required: true,
+            schema: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$", example: "2026-08" },
+          },
         ],
         responses: { "200": { description: "Calendário mensal" } },
       },
@@ -393,7 +654,18 @@ export const openApiDocument = {
         summary: "Atualiza agendamento permitido ao usuário",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Agendamento atualizado" } },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/AgendamentoUpdate" } },
+          },
+        },
+        responses: {
+          "200": { description: "Agendamento atualizado" },
+          "400": { description: "Dados inválidos" },
+          "403": { description: "Acesso negado" },
+          "409": { description: "Horário indisponível" },
+        },
       },
       delete: {
         summary: "Cancela agendamento",

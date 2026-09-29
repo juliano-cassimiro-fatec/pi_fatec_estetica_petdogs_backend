@@ -4,12 +4,13 @@ Este guia descreve a integração da tela de recuperação com a API PetDogs. A 
 
 ## Fluxo
 
-1. A pessoa informa o e-mail na tela “Esqueci minha senha”.
+1. **Esqueci minha senha:** a pessoa informa o e-mail.
 2. O frontend envia `POST /auth/forgot-password` com `{ "email": "pessoa@exemplo.com" }`.
-3. Mostre a resposta genérica e avance para a etapa de código. A mesma resposta é usada quando o e-mail não existe, para não revelar contas cadastradas.
-4. A pessoa informa o código de 6 dígitos recebido por e-mail e a nova senha.
-5. O frontend envia `POST /auth/reset-password` com `email`, `code` e `password`.
-6. Em caso de sucesso, confirme a redefinição e ofereça retorno ao login. O usuário precisará entrar novamente porque sessões anteriores são invalidadas.
+3. Mostre a resposta genérica e avance para a tela exclusiva de validação do código. A mesma resposta é usada quando o e-mail não existe, para não revelar contas cadastradas.
+4. **Validar código:** a pessoa informa somente o OTP de 6 dígitos. Não mostre campos de senha nesta tela.
+5. O frontend envia `POST /auth/verify-reset-code` com o e-mail e o código. Em sucesso, guarde `resetToken` apenas no estado em memória e avance para a tela de nova senha.
+6. **Nova senha:** mostre somente os campos da senha e confirmação. Envie `POST /auth/reset-password` com `resetToken` e `password`.
+7. Em caso de sucesso, confirme a redefinição e ofereça retorno ao login. Sessões anteriores são invalidadas.
 
 ## Chamadas HTTP
 
@@ -32,15 +33,34 @@ Resposta `200`:
 }
 ```
 
-Redefinir senha:
+Validar o OTP (tela de código):
+
+```http
+POST /api/v1/auth/verify-reset-code
+Content-Type: application/json
+
+{
+  "email": "pessoa@exemplo.com",
+  "code": "123456"
+}
+```
+
+Resposta `200`, usada para liberar a tela seguinte:
+
+```json
+{
+  "resetToken": "token-temporario-retornado-pela-api"
+}
+```
+
+Redefinir senha (tela seguinte):
 
 ```http
 POST /api/v1/auth/reset-password
 Content-Type: application/json
 
 {
-  "email": "pessoa@exemplo.com",
-  "code": "123456",
+  "resetToken": "token-temporario-retornado-pela-api",
   "password": "nova-senha-segura"
 }
 ```
@@ -55,12 +75,13 @@ Resposta `200`:
 
 ## Estados para a interface
 
-- Código inválido, expirado, já utilizado ou após 5 tentativas: `400` com `Código inválido ou expirado`.
+- Código inválido, expirado, já utilizado ou após 5 tentativas: `400` com `Código inválido ou expirado`; permaneça na tela de código.
+- Token temporário inválido ou expirado: `400`; solicite um novo código.
 - E-mail ou senha inválidos: `400`.
 - Limite excedido: `429`; mantenha a tela e informe que a pessoa tente novamente mais tarde.
-- Código válido: expira em 10 minutos e só pode ser usado uma vez.
+- Código e token temporário expiram 10 minutos após a solicitação; o código só pode ser validado uma vez.
 - Solicitar outro código invalida o anterior; mantenha o e-mail informado para a etapa de confirmação.
-- Os endpoints de recuperação não exigem JWT. Não envie tokens de sessão nessas chamadas.
+- Os endpoints de recuperação não exigem JWT. Não envie tokens de sessão nessas chamadas; `resetToken` é temporário e deve ficar somente em memória até concluir ou abandonar o fluxo.
 
 O limite atual de autenticação é de 10 chamadas por IP a cada 15 minutos. Não registre OTP nem senha em logs, analytics ou armazenamento persistente no navegador.
 

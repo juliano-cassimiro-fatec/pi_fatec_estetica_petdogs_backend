@@ -1,8 +1,6 @@
 import authService from "./auth.service.js";
 import Cliente from "../models/cliente.model.js";
 import Profissional from "../models/profissional.model.js";
-import Animal from "../models/animal.model.js";
-import Agendamento from "../models/agendamento.model.js";
 
 import type { ICreateClienteDTO, IUpdateClienteDTO } from "../models/cliente.types.js";
 
@@ -117,25 +115,6 @@ class ClienteService {
       new: true,
       runValidators: true,
     });
-
-    if (!cliente) {
-      throw notFound("Cliente não encontrado");
-    }
-
-    return cliente;
-  }
-
-  async delete(id: string) {
-    assertObjectId(id, "Cliente");
-
-    const hasAnimal = await Animal.exists({ cliente: id });
-    const hasAgendamento = await Agendamento.exists({ cliente: id });
-
-    if (hasAnimal || hasAgendamento) {
-      throw conflict("Cliente possui pets ou agendamentos e não pode ser removido");
-    }
-
-    const cliente = await Cliente.findByIdAndDelete(id);
 
     if (!cliente) {
       throw notFound("Cliente não encontrado");

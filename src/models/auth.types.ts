@@ -17,8 +17,12 @@ export interface IForgotPasswordDTO {
   email: string;
 }
 
-export interface IResetPasswordDTO {
+export interface IVerifyResetCodeDTO {
   email: string;
   code: string;
+}
+
+export interface IResetPasswordDTO {
+  resetToken: string;
   password: string;
 }

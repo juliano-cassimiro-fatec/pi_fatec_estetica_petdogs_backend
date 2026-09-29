@@ -10,6 +10,7 @@ authRoutes.get("/me", ensureAuthenticated, authController.me);
 authRoutes.post("/register", authLimiter, authController.register);
 authRoutes.post("/login", authLimiter, authController.login);
 authRoutes.post("/forgot-password", authLimiter, authController.forgotPassword);
+authRoutes.post("/verify-reset-code", authLimiter, authController.verifyResetCode);
 authRoutes.post("/reset-password", authLimiter, authController.resetPassword);
 
 export default authRoutes;

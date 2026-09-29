@@ -80,21 +80,23 @@ Fluxo esperado no frontend: cadastro/login → armazenar sessão de modo conscie
 - O JWT contém somente `sub`, `role`, versão da sessão, emissor, público, emissão e expiração. A cada requisição, o middleware valida assinatura, expiração, issuer/audience e consulta o usuário; não confia em dados fornecidos pelo cliente.
 - O middleware `ensureRoles` aplica RBAC. Por exemplo, `GET /api/v1/admin/users`, `/clientes` e `/relatorios` são exclusivos de `admin`; usuário autenticado sem papel retorna `403`, enquanto token ausente/inválido retorna `401`.
 - `POST /api/v1/auth/forgot-password` devolve a mesma mensagem para e-mails existentes ou não. Para contas existentes, envia um OTP de 6 dígitos; o hash HMAC é gravado em `PasswordResetToken` por 10 minutos, com uso único e até 5 tentativas.
-- `POST /api/v1/auth/reset-password` recebe e-mail, OTP e nova senha, reivindica o código atomicamente e incrementa a versão de sessão, invalidando JWTs anteriores daquele usuário.
-- Login, cadastro, esqueci senha e redefinição usam limite em memória de 10 requisições por IP a cada 15 minutos. Em implantação com múltiplas instâncias, substitua-o por um rate limiter compartilhado (Redis, por exemplo).
+- `POST /api/v1/auth/verify-reset-code` valida o OTP sem pedir a senha e retorna um token temporário para a próxima etapa.
+- `POST /api/v1/auth/reset-password` recebe o token temporário e a nova senha, consome o token atomicamente e incrementa a versão de sessão, invalidando JWTs anteriores daquele usuário.
+- Login, cadastro e as três etapas de recuperação usam limite em memória de 10 requisições por IP a cada 15 minutos. Em implantação com múltiplas instâncias, substitua-o por um rate limiter compartilhado (Redis, por exemplo).
 
 ## Endpoints principais
 
 Base: `http://localhost:3001/api/v1`.
 
-| Método e caminho             | Autenticação | Corpo / resultado                                                                                                              |
-| ---------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /auth/register`        | Não          | `{ "name", "email", "password", "telefone?", "foto?" }`; `201` com mensagem, usuário seguro e JWT. Erros: `400`, `409`, `429`. |
-| `POST /auth/login`           | Não          | `{ "email", "password" }`; `200` com usuário seguro e JWT. Erros: `400`, `401`, `429`.                                         |
-| `GET /auth/me`               | Bearer       | Usuário da sessão; `401` para token ausente, inválido ou expirado.                                                             |
-| `POST /auth/forgot-password` | Não          | `{ "email" }`; `200` com mensagem genérica. Erros: `400`, `429`.                                                               |
-| `POST /auth/reset-password`  | Não          | `{ "email", "code", "password" }`; `200` após redefinir. Erros: `400`, `429`.                                                  |
-| `GET /admin/users`           | Bearer admin | Clientes ativos e profissionais sem hashes. Erros: `401`, `403`.                                                               |
+| Método e caminho               | Autenticação | Corpo / resultado                                                                                                              |
+| ------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /auth/register`          | Não          | `{ "name", "email", "password", "telefone?", "foto?" }`; `201` com mensagem, usuário seguro e JWT. Erros: `400`, `409`, `429`. |
+| `POST /auth/login`             | Não          | `{ "email", "password" }`; `200` com usuário seguro e JWT. Erros: `400`, `401`, `429`.                                         |
+| `GET /auth/me`                 | Bearer       | Usuário da sessão; `401` para token ausente, inválido ou expirado.                                                             |
+| `POST /auth/forgot-password`   | Não          | `{ "email" }`; `200` com mensagem genérica. Erros: `400`, `429`.                                                               |
+| `POST /auth/verify-reset-code` | Não          | `{ "email", "code" }`; `200` com `{ "resetToken" }`. Erros: `400`, `429`.                                                      |
+| `POST /auth/reset-password`    | Não          | `{ "resetToken", "password" }`; `200` após redefinir. Erros: `400`, `429`.                                                     |
+| `GET /admin/users`             | Bearer admin | Clientes ativos e profissionais sem hashes. Erros: `401`, `403`.                                                               |
 
 As demais rotas de pets, serviços, agendamentos, profissionais, clientes, relatórios e uploads seguem o mesmo prefixo e estão em `/api/docs`.
 
@@ -116,7 +118,7 @@ Os testes unitários disponíveis verificam que a senha não é persistida em te
 2. Faça `POST /auth/login`, copie o `token` e chame `GET /auth/me` com `Authorization: Bearer <token>`.
 3. Com um token de cliente, chame `GET /admin/users` e confirme `403`; sem token, confirme `401`.
 4. Faça login com `ADMIN_EMAIL`/`ADMIN_PASSWORD` e chame `GET /admin/users` para confirmar `200`.
-5. Faça `POST /auth/forgot-password`; para uma conta existente verifique a caixa SMTP e envie e-mail, código e nova senha a `POST /auth/reset-password`.
+5. Faça `POST /auth/forgot-password`, valide o código em `POST /auth/verify-reset-code` e use o `resetToken` retornado com a nova senha em `POST /auth/reset-password`.
 6. Confirme que a senha antiga falha, a nova senha autentica e o token anterior passa a retornar `401`.
 
 ## Troubleshooting

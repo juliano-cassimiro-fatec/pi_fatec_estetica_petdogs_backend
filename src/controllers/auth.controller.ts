@@ -68,9 +68,16 @@ class AuthController {
     return res.status(200).json(result);
   }
 
+  public async verifyResetCode(req: Request, res: Response): Promise<Response> {
+    const { email, code } = req.body ?? {};
+    const result = await authService.verifyResetCode({ email, code });
+
+    return res.status(200).json(result);
+  }
+
   public async resetPassword(req: Request, res: Response): Promise<Response> {
-    const { email, code, password } = req.body ?? {};
-    const result = await authService.resetPassword({ email, code, password });
+    const { resetToken, password } = req.body ?? {};
+    const result = await authService.resetPassword({ resetToken, password });
 
     return res.status(200).json(result);
   }

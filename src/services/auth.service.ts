@@ -7,6 +7,7 @@ import type {
   ILoginDTO,
   IRegisterDTO,
   IResetPasswordDTO,
+  IVerifyResetCodeDTO,
   UserRole,
 } from "../models/auth.types.js";
 import { env } from "../config/env.js";
@@ -317,9 +318,8 @@ class AuthService {
     return genericResponse;
   }
 
-  public async resetPassword(data: IResetPasswordDTO) {
+  public async verifyResetCode(data: IVerifyResetCodeDTO) {
     if (!/^\d{6}$/.test(data.code ?? "")) throw badRequest("Código inválido ou expirado");
-    this.assertPassword(data.password);
     const email = this.normalizeEmail(data.email);
     const cliente = await Cliente.findOne({ email, ative: true });
     const profissional = cliente ? undefined : await Profissional.findOne({ email });
@@ -336,31 +336,56 @@ class AuthService {
       .update(`${account.id}:${data.code}`)
       .digest("hex");
     const now = new Date();
-    const resetToken = await PasswordResetToken.findOneAndUpdate(
+    const resetToken = crypto.randomBytes(32).toString("base64url");
+    const verifiedCode = await PasswordResetToken.findOneAndUpdate(
       {
         userId: account.id,
         userRole: role,
         tokenHash,
         expiresAt: { $gt: now },
         usedAt: { $exists: false },
+        verifiedAt: { $exists: false },
         attempts: { $lt: RESET_CODE_MAX_ATTEMPTS },
       },
-      { usedAt: now },
+      {
+        tokenHash: crypto.createHash("sha256").update(resetToken).digest("hex"),
+        verifiedAt: now,
+      },
       { new: true },
     ).select("+tokenHash");
-    if (!resetToken) {
+    if (!verifiedCode) {
       await PasswordResetToken.updateOne(
         {
           userId: account.id,
           userRole: role,
           expiresAt: { $gt: now },
           usedAt: { $exists: false },
+          verifiedAt: { $exists: false },
           attempts: { $lt: RESET_CODE_MAX_ATTEMPTS },
         },
         { $inc: { attempts: 1 } },
       );
       throw badRequest("Código inválido ou expirado");
     }
+
+    return { resetToken };
+  }
+
+  public async resetPassword(data: IResetPasswordDTO) {
+    if (!data.resetToken?.trim()) throw badRequest("Token de redefinição inválido ou expirado");
+    this.assertPassword(data.password);
+    const tokenHash = crypto.createHash("sha256").update(data.resetToken).digest("hex");
+    const resetToken = await PasswordResetToken.findOneAndUpdate(
+      {
+        tokenHash,
+        verifiedAt: { $exists: true },
+        expiresAt: { $gt: new Date() },
+        usedAt: { $exists: false },
+      },
+      { usedAt: new Date() },
+      { new: true },
+    ).select("+tokenHash");
+    if (!resetToken) throw badRequest("Token de redefinição inválido ou expirado");
 
     const update = { senha: await this.hashPassword(data.password), $inc: { authVersion: 1 } };
     const user =
