@@ -43,6 +43,12 @@ const clienteSchema = new Schema<ICliente>(
       type: Date,
       select: false,
     },
+    authVersion: {
+      type: Number,
+      default: 0,
+      required: true,
+      select: false,
+    },
     ative: {
       type: Boolean,
       default: true,

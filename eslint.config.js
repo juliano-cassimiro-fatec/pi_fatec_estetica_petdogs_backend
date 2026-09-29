@@ -124,7 +124,26 @@ export default defineConfig([
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-floating-promises": "off",
       "no-console": "off",
+    },
+  },
+
+  // Express 5 exposes request bodies and query strings as `any`. Validation is
+  // performed by the service layer, so these transport adapters may forward it.
+  {
+    files: ["src/controllers/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-base-to-string": "off",
+    },
+  },
+
+  // Controllers are stateless singleton adapters and do not use `this`.
+  {
+    files: ["src/routes/**/*.ts"],
+    rules: {
+      "@typescript-eslint/unbound-method": "off",
     },
   },
 

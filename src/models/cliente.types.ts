@@ -7,6 +7,7 @@ export interface ICliente {
   senha: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  authVersion: number;
   createdAt: Date;
   updatedAt?: Date;
   ative: boolean;
