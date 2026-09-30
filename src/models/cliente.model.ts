@@ -41,6 +41,11 @@ const clienteSchema = new Schema<ICliente>(
       required: true,
       select: false,
     },
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
     ative: {
       type: Boolean,
       default: true,

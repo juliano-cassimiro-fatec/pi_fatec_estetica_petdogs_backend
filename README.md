@@ -71,12 +71,15 @@ Para Gmail, crie uma App Password na conta Google com 2FA habilitado e use-a em 
 
 O frontend não faz parte deste repositório. Quando ele estiver disponível, configure a URL da API como `http://localhost:3001/api/v1`, defina `FRONTEND_URL` com a origem efetiva (por exemplo, `http://localhost:5173`) e envie `Authorization: Bearer <token>` apenas nas rotas protegidas. O CORS permite apenas essa origem, não `*`.
 
-Fluxo esperado no frontend: cadastro/login → armazenar sessão de modo consciente (o projeto não fornece uma política de storage) → interceptor/wrapper adiciona o Bearer token → recebe `401` e limpa a sessão → logout remove token e estado. Para implementar a recuperação de senha com OTP, siga o guia em [`docs/frontend-otp.md`](docs/frontend-otp.md). Nunca exponha `JWT_SECRET` ou credenciais SMTP no frontend.
+Fluxo esperado no frontend: cadastro/login → armazenar sessão de modo consciente (o projeto não fornece uma política de storage) → interceptor/wrapper adiciona o Bearer token → recebe `401` e limpa a sessão → logout remove token e estado. Para o primeiro acesso de contas criadas pelo administrador, siga [`docs/frontend-primeiro-acesso.md`](docs/frontend-primeiro-acesso.md); para recuperação com OTP, siga [`docs/frontend-otp.md`](docs/frontend-otp.md). Nunca exponha `JWT_SECRET` ou credenciais SMTP no frontend.
 
 ## Autenticação, autorização e recuperação
 
 - `POST /api/v1/auth/register` normaliza e valida e-mail, exige senha de 8 caracteres, cria um cliente e retorna a sessão sem `senha`/hash.
 - `POST /api/v1/auth/login` autentica cliente, profissional ou administrador de ambiente e retorna `{ user, token }`.
+- Contas criadas pelo administrador retornam `user.mustChangePassword: true` no login; até a troca, as rotas protegidas respondem `403` com `code: "PASSWORD_CHANGE_REQUIRED"`.
+- `POST /api/v1/auth/change-password` recebe uma senha nova (mínimo de 8 caracteres, diferente da provisória), remove a exigência, invalida a sessão anterior e devolve uma sessão atualizada. O login público e `GET /auth/me` continuam acessíveis para concluir o primeiro acesso.
+- Ao criar cliente ou profissional, o admin dispara um e-mail com o login e a senha provisória. O envio da senha por e-mail é um risco de segurança; o sistema exige a troca no primeiro acesso. O e-mail pode não ser entregue se o SMTP falhar, caso em que o backend registra o erro sem desfazer a conta.
 - O JWT contém somente `sub`, `role`, versão da sessão, emissor, público, emissão e expiração. A cada requisição, o middleware valida assinatura, expiração, issuer/audience e consulta o usuário; não confia em dados fornecidos pelo cliente.
 - O middleware `ensureRoles` aplica RBAC. Por exemplo, `GET /api/v1/admin/users`, `/clientes` e `/relatorios` são exclusivos de `admin`; usuário autenticado sem papel retorna `403`, enquanto token ausente/inválido retorna `401`.
 - `POST /api/v1/auth/forgot-password` devolve a mesma mensagem para e-mails existentes ou não. Para contas existentes, envia um OTP de 6 dígitos; o hash HMAC é gravado em `PasswordResetToken` por 10 minutos, com uso único e até 5 tentativas.
@@ -93,6 +96,7 @@ Base: `http://localhost:3001/api/v1`.
 | `POST /auth/register`          | Não          | `{ "name", "email", "password", "telefone?", "foto?" }`; `201` com mensagem, usuário seguro e JWT. Erros: `400`, `409`, `429`. |
 | `POST /auth/login`             | Não          | `{ "email", "password" }`; `200` com usuário seguro e JWT. Erros: `400`, `401`, `429`.                                         |
 | `GET /auth/me`                 | Bearer       | Usuário da sessão; `401` para token ausente, inválido ou expirado.                                                             |
+| `POST /auth/change-password`   | Bearer       | `{ "password" }`; `200` com nova sessão. Erros: `400`, `401`, `403`, `429`.                                                    |
 | `POST /auth/forgot-password`   | Não          | `{ "email" }`; `200` com mensagem genérica. Erros: `400`, `429`.                                                               |
 | `POST /auth/verify-reset-code` | Não          | `{ "email", "code" }`; `200` com `{ "resetToken" }`. Erros: `400`, `429`.                                                      |
 | `POST /auth/reset-password`    | Não          | `{ "resetToken", "password" }`; `200` após redefinir. Erros: `400`, `429`.                                                     |

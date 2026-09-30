@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import net from "net";
 import tls from "tls";
-import { optionalEnv } from "../config/env.js";
+import { env, optionalEnv } from "../config/env.js";
 
 type SmtpSocket = net.Socket | tls.TLSSocket;
 
@@ -83,7 +83,7 @@ class EmailService {
     return Boolean(getMailConfiguration());
   }
 
-  public async sendPasswordResetCode(email: string, code: string): Promise<void> {
+  private async sendMessage(email: string, subject: string, body: string[]): Promise<void> {
     const configuration = getMailConfiguration();
     if (!configuration) throw new Error("Serviço de e-mail não configurado");
 
@@ -115,24 +115,50 @@ class EmailService {
       const content = [
         `From: ${encodeHeader("PetDogs Estética")} <${configuration.from}>`,
         `To: <${email}>`,
-        `Subject: ${encodeHeader("Código para redefinir sua senha - PetDogs")}`,
+        `Subject: ${encodeHeader(subject)}`,
         `Message-ID: ${messageId}`,
         "MIME-Version: 1.0",
         "Content-Type: text/plain; charset=UTF-8",
         "Content-Transfer-Encoding: 8bit",
         "",
-        "Recebemos uma solicitação para redefinir a senha da sua conta PetDogs.",
-        "",
-        `Seu código de verificação é: ${code}`,
-        "Ele expira em 10 minutos e pode ser usado uma única vez.",
-        "",
-        "Se você não solicitou esta alteração, ignore este e-mail. Sua senha permanecerá inalterada.",
+        ...body,
       ].join("\r\n");
       await command(socket, `${toCrlf(content)}\r\n.`, [250]);
       await command(socket, "QUIT", [221]);
     } finally {
       socket?.destroy();
     }
+  }
+
+  public async sendPasswordResetCode(email: string, code: string): Promise<void> {
+    await this.sendMessage(email, "Código para redefinir sua senha - PetDogs", [
+      "Recebemos uma solicitação para redefinir a senha da sua conta PetDogs.",
+      "",
+      `Seu código de verificação é: ${code}`,
+      "Ele expira em 10 minutos e pode ser usado uma única vez.",
+      "",
+      "Se você não solicitou esta alteração, ignore este e-mail. Sua senha permanecerá inalterada.",
+    ]);
+  }
+
+  public async sendAccountCreatedEmail(
+    email: string,
+    name: string,
+    temporaryPassword: string,
+  ): Promise<void> {
+    const loginUrl = new URL("/login", env("FRONTEND_URL")).toString();
+    const safeName = name.replace(/[\r\n]+/g, " ").trim();
+    await this.sendMessage(email, "Sua conta PetDogs foi criada", [
+      `Olá, ${safeName}.`,
+      "",
+      "Sua conta PetDogs foi criada pelo administrador.",
+      `E-mail de acesso: ${email}`,
+      `Senha provisória: ${temporaryPassword}`,
+      "No primeiro acesso, crie uma nova senha antes de continuar. As demais funcionalidades ficarão bloqueadas até a troca.",
+      `Acesse: ${loginUrl}`,
+      "",
+      "Se você não esperava esta conta, entre em contato com o administrador.",
+    ]);
   }
 }
 

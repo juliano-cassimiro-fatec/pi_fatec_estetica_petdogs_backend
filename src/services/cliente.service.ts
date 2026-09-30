@@ -8,6 +8,7 @@ import { env } from "../config/env.js";
 import { notFound, conflict } from "../errors/app-error.js";
 import { assertEmail, assertObjectId } from "../utils/validation.js";
 import { validateStoredImagePath } from "./upload.service.js";
+import emailService from "./email.service.js";
 
 class ClienteService {
   async create(data: ICreateClienteDTO) {
@@ -31,11 +32,12 @@ class ClienteService {
       throw conflict("E-mail já cadastrado");
     }
 
-    const payload: Record<string, string> = {
+    const payload: Record<string, unknown> = {
       name,
       email,
       senha: await authService.hashPassword(senha),
       role: "cliente",
+      mustChangePassword: true,
     };
 
     if (data.telefone?.trim()) {
@@ -46,7 +48,19 @@ class ClienteService {
       payload.foto = validateStoredImagePath(data.foto);
     }
 
-    return Cliente.create(payload);
+    const cliente = await Cliente.create(payload);
+    try {
+      await emailService.sendAccountCreatedEmail(email, name, senha);
+    } catch (error) {
+      console.error(
+        "Falha ao enviar notificação de criação de conta",
+        error instanceof Error ? error.message : error,
+      );
+    }
+    const safeCliente = cliente.toObject();
+    Reflect.deleteProperty(safeCliente, "senha");
+    Reflect.deleteProperty(safeCliente, "authVersion");
+    return safeCliente;
   }
 
   async getAll() {

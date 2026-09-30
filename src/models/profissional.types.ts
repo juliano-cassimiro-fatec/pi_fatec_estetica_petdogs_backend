@@ -14,6 +14,7 @@ export interface IProfissional {
   disponibilidade_inicio?: Date;
   disponibilidade_fim?: Date;
   authVersion: number;
+  mustChangePassword: boolean;
   createdAt: Date;
   updatedAt?: Date;
 }

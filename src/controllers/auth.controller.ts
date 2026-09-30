@@ -11,7 +11,9 @@ class AuthController {
     }
 
     if (req.user.role === "admin") {
-      return res.status(200).json({ user: { ...req.user, foto: undefined } });
+      return res.status(200).json({
+        user: { ...req.user, foto: undefined, mustChangePassword: false },
+      });
     }
 
     if (req.user.role === "profissional") {
@@ -27,6 +29,7 @@ class AuthController {
               email: profissional.email,
               foto: profissional.foto,
               role: "profissional" as const,
+              mustChangePassword: req.user?.mustChangePassword ?? false,
             }
           : req.user,
       });
@@ -42,6 +45,7 @@ class AuthController {
             email: cliente.email,
             foto: cliente.foto,
             role: "cliente" as const,
+            mustChangePassword: req.user?.mustChangePassword ?? false,
           }
         : req.user,
     });
@@ -57,6 +61,14 @@ class AuthController {
   public async login(req: Request, res: Response): Promise<Response> {
     const { email, password } = req.body ?? {};
     const result = await authService.login({ email, password });
+
+    return res.status(200).json(result);
+  }
+
+  public async changePassword(req: AuthenticatedRequest, res: Response): Promise<Response> {
+    if (!req.user) return res.status(401).json({ message: "Usuário não autenticado" });
+    const { password } = req.body ?? {};
+    const result = await authService.changePassword(req.user, { password });
 
     return res.status(200).json(result);
   }

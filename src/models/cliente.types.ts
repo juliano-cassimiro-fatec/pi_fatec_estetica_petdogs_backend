@@ -6,6 +6,7 @@ export interface ICliente {
   role: "cliente";
   senha: string;
   authVersion: number;
+  mustChangePassword: boolean;
   createdAt: Date;
   updatedAt?: Date;
   ative: boolean;

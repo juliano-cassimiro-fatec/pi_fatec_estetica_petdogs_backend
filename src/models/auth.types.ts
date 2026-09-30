@@ -13,6 +13,10 @@ export interface ILoginDTO {
   password: string;
 }
 
+export interface IChangePasswordDTO {
+  password: string;
+}
+
 export interface IForgotPasswordDTO {
   email: string;
 }
