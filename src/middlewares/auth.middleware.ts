@@ -24,3 +24,18 @@ export async function ensureAuthenticated(
     return res.status(401).json({ message });
   }
 }
+
+export function ensurePasswordChangeComplete(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  if (req.user?.mustChangePassword) {
+    return res.status(403).json({
+      message: "Altere sua senha provisória antes de continuar",
+      code: "PASSWORD_CHANGE_REQUIRED",
+    });
+  }
+
+  next();
+}

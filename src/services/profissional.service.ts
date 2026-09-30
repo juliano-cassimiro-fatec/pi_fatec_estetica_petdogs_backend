@@ -12,6 +12,7 @@ import { assertEmail, assertObjectId } from "../utils/validation.js";
 import { badRequest, conflict, notFound } from "../errors/app-error.js";
 import { env } from "../config/env.js";
 import { validateStoredImagePath } from "./upload.service.js";
+import emailService from "./email.service.js";
 
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5];
 const DEFAULT_WORKING_START = "08:00";
@@ -117,6 +118,7 @@ class ProfissionalService {
       email,
       senha: await authService.hashPassword(senha),
       role: "profissional",
+      mustChangePassword: true,
       especialidade,
 
       disponibilidade_inicio: data.disponibilidade_inicio
@@ -138,7 +140,19 @@ class ProfissionalService {
       payload.foto = validateStoredImagePath(data.foto);
     }
 
-    return Profissional.create(payload);
+    const profissional = await Profissional.create(payload);
+    try {
+      await emailService.sendAccountCreatedEmail(email, name, senha);
+    } catch (error) {
+      console.error(
+        "Falha ao enviar notificação de criação de conta",
+        error instanceof Error ? error.message : error,
+      );
+    }
+    const safeProfissional = profissional.toObject();
+    Reflect.deleteProperty(safeProfissional, "senha");
+    Reflect.deleteProperty(safeProfissional, "authVersion");
+    return safeProfissional;
   }
 
   async getAll() {

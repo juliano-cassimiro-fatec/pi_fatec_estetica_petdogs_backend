@@ -18,6 +18,11 @@ export const openApiDocument = {
         required: ["email", "password"],
         properties: { email: { type: "string" }, password: { type: "string" } },
       },
+      ChangePassword: {
+        type: "object",
+        required: ["password"],
+        properties: { password: { type: "string", minLength: 8 } },
+      },
       Register: {
         type: "object",
         required: ["name", "email", "password"],
@@ -248,7 +253,29 @@ export const openApiDocument = {
           content: { "application/json": { schema: { $ref: "#/components/schemas/Login" } } },
         },
         responses: {
-          "200": { description: "Login realizado" },
+          "200": {
+            description: "Login realizado; confira user.mustChangePassword antes de liberar o app",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    user: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        name: { type: "string" },
+                        email: { type: "string", format: "email" },
+                        role: { type: "string", enum: ["admin", "cliente", "profissional"] },
+                        mustChangePassword: { type: "boolean" },
+                      },
+                    },
+                    token: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
           "401": { description: "Credenciais inválidas" },
         },
       },
@@ -258,8 +285,34 @@ export const openApiDocument = {
         summary: "Retorna usuário autenticado",
         security: [{ bearerAuth: [] }],
         responses: {
-          "200": { description: "Usuário atual" },
+          "200": {
+            description: "Usuário atual, incluindo mustChangePassword",
+          },
           "401": { description: "Token inválido ou ausente" },
+        },
+      },
+    },
+    "/auth/change-password": {
+      post: {
+        summary: "Altera a senha provisória ou atual do usuário autenticado",
+        description:
+          "A troca é obrigatória para contas criadas pelo administrador. Após a troca, retorna uma nova sessão e invalida tokens anteriores.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ChangePassword" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Senha alterada e sessão renovada" },
+          "400": {
+            description: "Senha inválida, menor que 8 caracteres ou igual à senha provisória",
+          },
+          "401": { description: "Sessão inválida" },
+          "403": { description: "Administrador usa credenciais configuradas no ambiente" },
         },
       },
     },
@@ -356,7 +409,8 @@ export const openApiDocument = {
         },
       },
       post: {
-        summary: "Cria cliente (admin)",
+        summary:
+          "Cria cliente (admin), exige troca de senha no primeiro acesso e notifica por e-mail",
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -523,7 +577,8 @@ export const openApiDocument = {
         responses: { "200": { description: "Profissionais" } },
       },
       post: {
-        summary: "Cria profissional (admin)",
+        summary:
+          "Cria profissional (admin), exige troca de senha no primeiro acesso e notifica por e-mail",
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,

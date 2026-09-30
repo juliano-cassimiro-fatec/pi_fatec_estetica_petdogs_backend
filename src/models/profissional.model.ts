@@ -81,6 +81,11 @@ const profissionalSchema = new Schema<IProfissional>(
       required: true,
       select: false,
     },
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
   },
   { timestamps: true },
 );

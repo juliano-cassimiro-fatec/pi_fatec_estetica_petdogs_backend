@@ -1,11 +1,14 @@
 import { Router } from "express";
 import clienteController from "../controllers/cliente.controller.js";
-import { ensureAuthenticated } from "../middlewares/auth.middleware.js";
+import {
+  ensureAuthenticated,
+  ensurePasswordChangeComplete,
+} from "../middlewares/auth.middleware.js";
 import { ensureRoles, resolveTargetIdForRole } from "../middlewares/authorization.middleware.js";
 
 const clienteRoutes = Router();
 
-clienteRoutes.use(ensureAuthenticated);
+clienteRoutes.use(ensureAuthenticated, ensurePasswordChangeComplete);
 clienteRoutes.get("/me", ensureRoles(["cliente"]), clienteController.getMe);
 clienteRoutes.put(
   "/me",

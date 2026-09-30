@@ -8,5 +8,6 @@ export interface AuthenticatedRequest extends Request {
     name: string;
     foto?: string;
     role: "admin" | "profissional" | "cliente";
+    mustChangePassword?: boolean;
   };
 }

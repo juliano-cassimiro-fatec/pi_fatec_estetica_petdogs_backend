@@ -3,6 +3,7 @@ import Cliente from "../models/cliente.model.js";
 import PasswordResetToken from "../models/password-reset-token.model.js";
 import Profissional from "../models/profissional.model.js";
 import type {
+  IChangePasswordDTO,
   IForgotPasswordDTO,
   ILoginDTO,
   IRegisterDTO,
@@ -11,7 +12,7 @@ import type {
   UserRole,
 } from "../models/auth.types.js";
 import { env } from "../config/env.js";
-import { badRequest, conflict, unauthorized } from "../errors/app-error.js";
+import { badRequest, conflict, forbidden, unauthorized } from "../errors/app-error.js";
 import { assertEmail } from "../utils/validation.js";
 import { validateStoredImagePath } from "./upload.service.js";
 import emailService from "./email.service.js";
@@ -27,6 +28,7 @@ interface AuthUser {
   role: UserRole;
   foto?: string;
   authVersion?: number;
+  mustChangePassword?: boolean;
 }
 
 function derivePassword(password: string, salt: string): Promise<Buffer> {
@@ -103,6 +105,7 @@ class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        mustChangePassword: user.mustChangePassword ?? false,
         ...(user.foto ? { foto: user.foto } : {}),
       },
       token: this.createToken(user),
@@ -111,7 +114,7 @@ class AuthService {
 
   private async findPersistedUser(id: string, role: PersistedRole): Promise<AuthUser | undefined> {
     if (role === "cliente") {
-      const cliente = await Cliente.findById(id).select("+authVersion");
+      const cliente = await Cliente.findById(id).select("+authVersion +mustChangePassword");
       if (!cliente || !cliente.ative) return undefined;
       return {
         id: cliente.id,
@@ -120,9 +123,10 @@ class AuthService {
         role,
         ...(cliente.foto ? { foto: cliente.foto } : {}),
         authVersion: cliente.authVersion,
+        mustChangePassword: cliente.mustChangePassword,
       };
     }
-    const user = await Profissional.findById(id).select("+authVersion");
+    const user = await Profissional.findById(id).select("+authVersion +mustChangePassword");
     if (!user) return undefined;
     return {
       id: user.id,
@@ -131,6 +135,7 @@ class AuthService {
       role,
       ...(user.foto ? { foto: user.foto } : {}),
       authVersion: user.authVersion,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 
@@ -251,7 +256,9 @@ class AuthService {
       });
     }
 
-    const profissional = await Profissional.findOne({ email }).select("+senha +authVersion");
+    const profissional = await Profissional.findOne({ email }).select(
+      "+senha +authVersion +mustChangePassword",
+    );
     if (profissional?.senha && (await this.comparePassword(data.password, profissional.senha))) {
       return this.buildSession({
         id: profissional.id,
@@ -260,10 +267,13 @@ class AuthService {
         role: "profissional",
         ...(profissional.foto ? { foto: profissional.foto } : {}),
         authVersion: profissional.authVersion,
+        mustChangePassword: profissional.mustChangePassword,
       });
     }
 
-    const cliente = await Cliente.findOne({ email, ative: true }).select("+senha +authVersion");
+    const cliente = await Cliente.findOne({ email, ative: true }).select(
+      "+senha +authVersion +mustChangePassword",
+    );
     if (!cliente || !(await this.comparePassword(data.password, cliente.senha))) {
       throw unauthorized("Credenciais inválidas");
     }
@@ -274,7 +284,58 @@ class AuthService {
       role: "cliente",
       ...(cliente.foto ? { foto: cliente.foto } : {}),
       authVersion: cliente.authVersion,
+      mustChangePassword: cliente.mustChangePassword,
     });
+  }
+
+  public async changePassword(user: { id: string; role: UserRole }, data: IChangePasswordDTO) {
+    if (user.role === "admin")
+      throw forbidden("A senha do administrador é configurada no ambiente");
+    this.assertPassword(data.password);
+
+    const currentAccount =
+      user.role === "cliente"
+        ? await Cliente.findById(user.id).select("+senha +authVersion")
+        : await Profissional.findById(user.id).select("+senha +authVersion");
+    if (!currentAccount) throw unauthorized("Usuário não encontrado");
+    if (await this.comparePassword(data.password, currentAccount.senha)) {
+      throw badRequest("A nova senha deve ser diferente da senha provisória");
+    }
+
+    const update = {
+      senha: await this.hashPassword(data.password),
+      mustChangePassword: false,
+      $inc: { authVersion: 1 },
+    };
+    const account =
+      user.role === "cliente"
+        ? await Cliente.findOneAndUpdate(
+            { _id: user.id, senha: currentAccount.senha, authVersion: currentAccount.authVersion },
+            update,
+            { new: true, runValidators: true },
+          ).select("+authVersion +mustChangePassword")
+        : await Profissional.findOneAndUpdate(
+            { _id: user.id, senha: currentAccount.senha, authVersion: currentAccount.authVersion },
+            update,
+            {
+              new: true,
+              runValidators: true,
+            },
+          ).select("+authVersion +mustChangePassword");
+    if (!account) throw unauthorized("Sessão desatualizada; faça login novamente");
+
+    return {
+      message: "Senha alterada com sucesso",
+      ...this.buildSession({
+        id: account.id,
+        name: account.name,
+        email: account.email,
+        role: user.role,
+        ...(account.foto ? { foto: account.foto } : {}),
+        authVersion: account.authVersion,
+        mustChangePassword: account.mustChangePassword,
+      }),
+    };
   }
 
   public async forgotPassword(data: IForgotPasswordDTO) {
@@ -387,7 +448,11 @@ class AuthService {
     ).select("+tokenHash");
     if (!resetToken) throw badRequest("Token de redefinição inválido ou expirado");
 
-    const update = { senha: await this.hashPassword(data.password), $inc: { authVersion: 1 } };
+    const update = {
+      senha: await this.hashPassword(data.password),
+      mustChangePassword: false,
+      $inc: { authVersion: 1 },
+    };
     const user =
       resetToken.userRole === "cliente"
         ? await Cliente.findByIdAndUpdate(resetToken.userId, update, {
