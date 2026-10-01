@@ -46,6 +46,11 @@ const clienteSchema = new Schema<ICliente>(
       default: false,
       select: false,
     },
+    emailVerified: {
+      type: Boolean,
+      default: true,
+      select: false,
+    },
     ative: {
       type: Boolean,
       default: true,

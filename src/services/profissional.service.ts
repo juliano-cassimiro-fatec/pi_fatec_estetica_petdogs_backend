@@ -13,6 +13,7 @@ import { badRequest, conflict, notFound } from "../errors/app-error.js";
 import { env } from "../config/env.js";
 import { validateStoredImagePath } from "./upload.service.js";
 import emailService from "./email.service.js";
+import { normalizeWorkingDays } from "../utils/agendamento-date.js";
 
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5];
 const DEFAULT_WORKING_START = "08:00";
@@ -30,13 +31,13 @@ class ProfissionalService {
   }
 
   private parseDays(value?: number[] | string): number[] {
-    if (!value) return DEFAULT_WORKING_DAYS;
+    if (value === undefined || value === "") return DEFAULT_WORKING_DAYS;
 
     const days = Array.isArray(value)
       ? value.map(Number)
       : value.split(",").map((item) => Number(item.trim()));
 
-    return [...new Set(days.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
+    return normalizeWorkingDays(days);
   }
 
   private parseTime(value?: string | Date, fallback = DEFAULT_WORKING_START): string {

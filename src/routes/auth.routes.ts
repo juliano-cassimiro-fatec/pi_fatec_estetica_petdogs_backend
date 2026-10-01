@@ -8,6 +8,8 @@ const authLimiter = rateLimit(10, 15 * 60 * 1000);
 
 authRoutes.get("/me", ensureAuthenticated, authController.me);
 authRoutes.post("/register", authLimiter, authController.register);
+authRoutes.post("/verify-email", authLimiter, authController.verifyEmail);
+authRoutes.post("/resend-email-verification", authLimiter, authController.resendEmailVerification);
 authRoutes.post("/login", authLimiter, authController.login);
 authRoutes.post(
   "/change-password",

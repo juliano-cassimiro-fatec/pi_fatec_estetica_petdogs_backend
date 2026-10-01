@@ -58,6 +58,20 @@ class AuthController {
     return res.status(201).json(result);
   }
 
+  public async verifyEmail(req: Request, res: Response): Promise<Response> {
+    const { email, code } = req.body ?? {};
+    const result = await authService.verifyEmail({ email, code });
+
+    return res.status(200).json(result);
+  }
+
+  public async resendEmailVerification(req: Request, res: Response): Promise<Response> {
+    const { email } = req.body ?? {};
+    const result = await authService.resendEmailVerification({ email });
+
+    return res.status(200).json(result);
+  }
+
   public async login(req: Request, res: Response): Promise<Response> {
     const { email, password } = req.body ?? {};
     const result = await authService.login({ email, password });

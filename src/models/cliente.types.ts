@@ -7,6 +7,7 @@ export interface ICliente {
   senha: string;
   authVersion: number;
   mustChangePassword: boolean;
+  emailVerified: boolean;
   createdAt: Date;
   updatedAt?: Date;
   ative: boolean;

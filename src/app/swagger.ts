@@ -3,7 +3,7 @@ import type { Express, Request, Response } from "express";
 export const openApiDocument = {
   openapi: "3.0.3",
   info: {
-    title: "PetDogs Estética API",
+    title: "Estética PetDogs API",
     version: "1.0.0",
     description: "API para cadastro de clientes, profissionais, pets, serviços e agendamentos.",
   },
@@ -33,6 +33,19 @@ export const openApiDocument = {
           telefone: { type: "string" },
           foto: { type: "string" },
         },
+      },
+      VerifyEmail: {
+        type: "object",
+        required: ["email", "code"],
+        properties: {
+          email: { type: "string", format: "email" },
+          code: { type: "string", pattern: "^\\d{6}$" },
+        },
+      },
+      ResendEmailVerification: {
+        type: "object",
+        required: ["email"],
+        properties: { email: { type: "string", format: "email" } },
       },
       Cliente: {
         type: "object",
@@ -70,7 +83,11 @@ export const openApiDocument = {
           telefone: { type: "string" },
           foto: { type: "string", description: "Caminho retornado por POST /uploads." },
           especialidade: { type: "string" },
-          dias_trabalho: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 } },
+          dias_trabalho: {
+            type: "array",
+            description: "Dias JavaScript 0-6; também aceita 7 como domingo.",
+            items: { type: "integer", minimum: 0, maximum: 7 },
+          },
           horario_inicio: { type: "string", example: "08:00" },
           horario_fim: { type: "string", example: "18:00" },
           almoco_inicio: { type: "string", example: "12:00" },
@@ -88,7 +105,11 @@ export const openApiDocument = {
           telefone: { type: "string" },
           foto: { type: "string", description: "Caminho retornado por POST /uploads." },
           especialidade: { type: "string" },
-          dias_trabalho: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 } },
+          dias_trabalho: {
+            type: "array",
+            description: "Dias JavaScript 0-6; também aceita 7 como domingo.",
+            items: { type: "integer", minimum: 0, maximum: 7 },
+          },
           horario_inicio: { type: "string", example: "08:00" },
           horario_fim: { type: "string", example: "18:00" },
           almoco_inicio: { type: "string", example: "12:00" },
@@ -167,7 +188,7 @@ export const openApiDocument = {
         properties: {
           id: { type: "string" },
           data_hora: { type: "string", format: "date-time" },
-          status: { type: "string", enum: ["agendado", "cancelado"] },
+          status: { type: "string", enum: ["agendado", "confirmado", "cancelado"] },
           animal: { type: "string" },
           servico: { type: "string" },
           profissional: { type: "string" },
@@ -191,7 +212,48 @@ export const openApiDocument = {
           animal: { type: "string" },
           servico: { type: "string" },
           profissional: { type: "string" },
-          status: { type: "string", enum: ["agendado", "cancelado"] },
+          status: { type: "string", enum: ["agendado", "confirmado", "cancelado"] },
+        },
+      },
+      AvailabilitySlot: {
+        type: "object",
+        required: ["time", "datetime", "available"],
+        properties: {
+          time: { type: "string", example: "08:30" },
+          datetime: { type: "string", format: "date-time" },
+          available: { type: "boolean" },
+        },
+      },
+      DailyAvailability: {
+        type: "object",
+        properties: {
+          date: { type: "string", format: "date" },
+          available: { type: "boolean" },
+          slots: { type: "array", items: { $ref: "#/components/schemas/AvailabilitySlot" } },
+          workingDays: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 } },
+          window: {
+            type: "object",
+            properties: { start: { type: "string" }, end: { type: "string" } },
+          },
+          duration_min: { type: "integer" },
+        },
+      },
+      MonthlyAvailability: {
+        type: "object",
+        properties: {
+          month: { type: "string", example: "2026-09" },
+          days: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                date: { type: "string", format: "date" },
+                available: { type: "boolean" },
+                slotsCount: { type: "integer" },
+                workingDay: { type: "boolean" },
+              },
+            },
+          },
         },
       },
       Relatorio: {
@@ -206,9 +268,22 @@ export const openApiDocument = {
       },
       Error: {
         type: "object",
-        properties: {
-          message: { type: "string" },
-          code: { type: "string" },
+        description:
+          "Data local do calendário em YYYY-MM-DD; não envie data-only convertida para UTC.",
+        schema: { type: "string", format: "date", example: "2026-09-30" },
+        message: { type: "string" },
+        code: { type: "string" },
+        responses: {
+          "200": {
+            description: "Slots da jornada; filtre slots pelo campo available",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DailyAvailability" },
+              },
+            },
+          },
+          "400": { description: "Data ou parâmetros inválidos" },
+          "401": { description: "Não autenticado" },
         },
       },
     },
@@ -234,14 +309,52 @@ export const openApiDocument = {
     },
     "/auth/register": {
       post: {
-        summary: "Cadastra cliente",
+        summary: "Inicia cadastro de cliente e envia código para confirmar o e-mail",
         requestBody: {
           required: true,
           content: { "application/json": { schema: { $ref: "#/components/schemas/Register" } } },
         },
         responses: {
-          "201": { description: "Cliente cadastrado e token gerado" },
+          "201": { description: "Cadastro pendente; ainda não retorna sessão" },
           "400": { description: "Dados inválidos" },
+          "409": { description: "E-mail já cadastrado" },
+          "429": { description: "Limite excedido" },
+        },
+      },
+    },
+    "/auth/verify-email": {
+      post: {
+        summary: "Confirma o e-mail com o OTP e inicia a sessão",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/VerifyEmail" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "E-mail confirmado; retorna user e JWT" },
+          "400": { description: "Código inválido ou expirado" },
+          "429": { description: "Limite excedido" },
+        },
+      },
+    },
+    "/auth/resend-email-verification": {
+      post: {
+        summary: "Solicita reenvio do código de confirmação",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ResendEmailVerification" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Resposta genérica para cadastro pendente ou inexistente" },
+          "400": { description: "E-mail inválido" },
+          "429": { description: "Limite excedido" },
         },
       },
     },
@@ -277,6 +390,7 @@ export const openApiDocument = {
             },
           },
           "401": { description: "Credenciais inválidas" },
+          "403": { description: "E-mail não confirmado (EMAIL_VERIFICATION_REQUIRED)" },
         },
       },
     },
@@ -701,12 +815,25 @@ export const openApiDocument = {
             schema: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$", example: "2026-08" },
           },
         ],
-        responses: { "200": { description: "Calendário mensal" } },
+        responses: {
+          "200": {
+            description: "Dias locais do mês e contagem de horários livres",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/MonthlyAvailability" },
+              },
+            },
+          },
+          "400": { description: "Mês ou parâmetros inválidos" },
+          "401": { description: "Não autenticado" },
+        },
       },
     },
     "/agendamentos/{id}": {
       put: {
         summary: "Atualiza agendamento permitido ao usuário",
+        description:
+          "Admin ou profissional pode confirmar com status=confirmado. A confirmação e o cancelamento enviam notificações para cliente e profissional.",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         requestBody: {
@@ -732,6 +859,7 @@ export const openApiDocument = {
     "/agendamentos/{id}/cancel": {
       patch: {
         summary: "Cancela agendamento",
+        description: "Envia e-mail de cancelamento para cliente e profissional.",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         responses: { "200": { description: "Agendamento cancelado" } },
@@ -801,7 +929,7 @@ export const openApiDocument = {
   },
 };
 
-const swaggerHtml = `<!doctype html><html><head><title>PetDogs API Docs</title><meta charset="utf-8"><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'/api/docs/openapi.json',dom_id:'#swagger-ui',persistAuthorization:true});</script></body></html>`;
+const swaggerHtml = `<!doctype html><html><head><title>Estética PetDogs API Docs</title><meta charset="utf-8"><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'/api/docs/openapi.json',dom_id:'#swagger-ui',persistAuthorization:true});</script></body></html>`;
 
 export function setupSwagger(app: Express): void {
   app.get("/api/docs/openapi.json", (_req: Request, res: Response) => res.json(openApiDocument));

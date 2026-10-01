@@ -1,6 +1,6 @@
 import type { Types } from "mongoose";
 
-export type AgendamentoStatus = "agendado" | "cancelado";
+export type AgendamentoStatus = "agendado" | "confirmado" | "cancelado";
 
 export interface IAgendamento {
   data_hora: Date;

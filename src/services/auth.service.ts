@@ -1,24 +1,29 @@
 import crypto from "crypto";
 import Cliente from "../models/cliente.model.js";
+import EmailVerificationToken from "../models/email-verification-token.model.js";
 import PasswordResetToken from "../models/password-reset-token.model.js";
 import Profissional from "../models/profissional.model.js";
 import type {
   IChangePasswordDTO,
   IForgotPasswordDTO,
   ILoginDTO,
+  IResendEmailVerificationDTO,
   IRegisterDTO,
   IResetPasswordDTO,
+  IVerifyEmailDTO,
   IVerifyResetCodeDTO,
   UserRole,
 } from "../models/auth.types.js";
 import { env } from "../config/env.js";
-import { badRequest, conflict, forbidden, unauthorized } from "../errors/app-error.js";
+import { AppError, badRequest, conflict, forbidden, unauthorized } from "../errors/app-error.js";
 import { assertEmail } from "../utils/validation.js";
 import { validateStoredImagePath } from "./upload.service.js";
 import emailService from "./email.service.js";
 
 const RESET_CODE_EXPIRATION_MS = 10 * 60 * 1000;
 const RESET_CODE_MAX_ATTEMPTS = 5;
+const EMAIL_VERIFICATION_EXPIRATION_MS = 10 * 60 * 1000;
+const EMAIL_VERIFICATION_MAX_ATTEMPTS = 5;
 
 type PersistedRole = Exclude<UserRole, "admin">;
 interface AuthUser {
@@ -112,10 +117,36 @@ class AuthService {
     };
   }
 
+  private async issueEmailVerificationCode(user: { id: string; email: string; name: string }) {
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const tokenHash = crypto
+      .createHmac("sha256", env("JWT_SECRET"))
+      .update(`${user.id}:${code}:email-verification`)
+      .digest("hex");
+
+    await EmailVerificationToken.deleteMany({ userId: user.id, usedAt: { $exists: false } });
+    await EmailVerificationToken.create({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MS),
+    });
+
+    try {
+      await emailService.sendEmailVerificationCode(user.email, user.name, code);
+    } catch (error) {
+      console.error(
+        "Falha ao enviar código de verificação de e-mail",
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
   private async findPersistedUser(id: string, role: PersistedRole): Promise<AuthUser | undefined> {
     if (role === "cliente") {
-      const cliente = await Cliente.findById(id).select("+authVersion +mustChangePassword");
-      if (!cliente || !cliente.ative) return undefined;
+      const cliente = await Cliente.findById(id).select(
+        "+authVersion +mustChangePassword +emailVerified",
+      );
+      if (!cliente || !cliente.ative || !cliente.emailVerified) return undefined;
       return {
         id: cliente.id,
         name: cliente.name,
@@ -220,19 +251,15 @@ class AuthService {
         email,
         senha: await this.hashPassword(data.password),
         role: "cliente",
+        emailVerified: false,
         ...(data.telefone?.trim() ? { telefone: data.telefone.trim() } : {}),
         ...(data.foto?.trim() ? { foto: validateStoredImagePath(data.foto) } : {}),
       });
+      await this.issueEmailVerificationCode({ id: cliente.id, email, name });
       return {
-        message: "Usuário cadastrado com sucesso",
-        ...this.buildSession({
-          id: cliente.id,
-          name: cliente.name,
-          email: cliente.email,
-          role: "cliente",
-          ...(cliente.foto ? { foto: cliente.foto } : {}),
-          authVersion: cliente.authVersion,
-        }),
+        message: "Cadastro criado. Enviamos um código para confirmar seu e-mail.",
+        email,
+        requiresEmailVerification: true,
       };
     } catch (error) {
       if (typeof error === "object" && error !== null && "code" in error && error.code === 11000) {
@@ -272,10 +299,13 @@ class AuthService {
     }
 
     const cliente = await Cliente.findOne({ email, ative: true }).select(
-      "+senha +authVersion +mustChangePassword",
+      "+senha +authVersion +mustChangePassword +emailVerified",
     );
     if (!cliente || !(await this.comparePassword(data.password, cliente.senha))) {
       throw unauthorized("Credenciais inválidas");
+    }
+    if (!cliente.emailVerified) {
+      throw new AppError(403, "Confirme seu e-mail antes de entrar", "EMAIL_VERIFICATION_REQUIRED");
     }
     return this.buildSession({
       id: cliente.id,
@@ -286,6 +316,78 @@ class AuthService {
       authVersion: cliente.authVersion,
       mustChangePassword: cliente.mustChangePassword,
     });
+  }
+
+  public async verifyEmail(data: IVerifyEmailDTO) {
+    if (!/^\d{6}$/.test(data.code ?? "")) throw badRequest("Código inválido ou expirado");
+    const email = this.normalizeEmail(data.email);
+    const cliente = await Cliente.findOne({ email, ative: true }).select("+emailVerified");
+    if (!cliente || cliente.emailVerified) throw badRequest("Código inválido ou expirado");
+
+    const tokenHash = crypto
+      .createHmac("sha256", env("JWT_SECRET"))
+      .update(`${cliente.id}:${data.code}:email-verification`)
+      .digest("hex");
+    const now = new Date();
+    const verification = await EmailVerificationToken.findOneAndUpdate(
+      {
+        userId: cliente.id,
+        tokenHash,
+        expiresAt: { $gt: now },
+        usedAt: { $exists: false },
+        attempts: { $lt: EMAIL_VERIFICATION_MAX_ATTEMPTS },
+      },
+      { usedAt: now },
+      { new: true },
+    );
+    if (!verification) {
+      await EmailVerificationToken.updateOne(
+        {
+          userId: cliente.id,
+          expiresAt: { $gt: now },
+          usedAt: { $exists: false },
+          attempts: { $lt: EMAIL_VERIFICATION_MAX_ATTEMPTS },
+        },
+        { $inc: { attempts: 1 } },
+      );
+      throw badRequest("Código inválido ou expirado");
+    }
+
+    const verifiedCliente = await Cliente.findOneAndUpdate(
+      { _id: cliente.id, emailVerified: false },
+      { emailVerified: true },
+      { new: true },
+    ).select("+authVersion +mustChangePassword +emailVerified");
+    if (!verifiedCliente) throw badRequest("Código inválido ou expirado");
+
+    return {
+      message: "E-mail confirmado com sucesso",
+      ...this.buildSession({
+        id: verifiedCliente.id,
+        name: verifiedCliente.name,
+        email: verifiedCliente.email,
+        role: "cliente",
+        ...(verifiedCliente.foto ? { foto: verifiedCliente.foto } : {}),
+        authVersion: verifiedCliente.authVersion,
+        mustChangePassword: verifiedCliente.mustChangePassword,
+      }),
+    };
+  }
+
+  public async resendEmailVerification(data: IResendEmailVerificationDTO) {
+    const email = this.normalizeEmail(data.email);
+    const cliente = await Cliente.findOne({ email, ative: true, emailVerified: false });
+    if (cliente) {
+      await this.issueEmailVerificationCode({
+        id: cliente.id,
+        email: cliente.email,
+        name: cliente.name,
+      });
+    }
+
+    return {
+      message: "Se houver um cadastro pendente para este e-mail, enviaremos um novo código.",
+    };
   }
 
   public async changePassword(user: { id: string; role: UserRole }, data: IChangePasswordDTO) {

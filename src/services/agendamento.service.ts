@@ -1,11 +1,22 @@
 import Agendamento from "../models/agendamento.model.js";
 import Animal from "../models/animal.model.js";
+import Cliente from "../models/cliente.model.js";
 import Profissional from "../models/profissional.model.js";
 import Servico from "../models/servico.model.js";
 import type { UserRole } from "../models/auth.types.js";
-import type { IAvailabilityQuery, ICreateAgendamentoDTO } from "../models/agendamento.types.js";
+import type {
+  AgendamentoStatus,
+  IAvailabilityQuery,
+  ICreateAgendamentoDTO,
+} from "../models/agendamento.types.js";
 import { badRequest, forbidden, notFound } from "../errors/app-error.js";
 import { assertObjectId } from "../utils/validation.js";
+import emailService from "./email.service.js";
+import {
+  formatCalendarDate,
+  normalizeWorkingDays,
+  parseCalendarDate,
+} from "../utils/agendamento-date.js";
 
 const SLOT_STEP_MINUTES = 15;
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5];
@@ -64,7 +75,9 @@ class AgendamentoService {
   }
 
   private getWorkingDays(profissional: { dias_trabalho?: number[] }) {
-    return profissional.dias_trabalho?.length ? profissional.dias_trabalho : DEFAULT_WORKING_DAYS;
+    return profissional.dias_trabalho
+      ? normalizeWorkingDays(profissional.dias_trabalho)
+      : DEFAULT_WORKING_DAYS;
   }
 
   private getWorkingWindow(profissional: { horario_inicio?: string; horario_fim?: string }) {
@@ -196,7 +209,7 @@ class AgendamentoService {
     const { start, end } = this.getDayBounds(date);
     const filter: Record<string, unknown> = {
       profissional: profissionalId,
-      status: "agendado",
+      status: { $in: ["agendado", "confirmado"] },
       data_hora: { $gte: start, $lte: end },
     };
 
@@ -205,6 +218,57 @@ class AgendamentoService {
     }
 
     return Agendamento.find(filter).populate("servico", "duracao_min");
+  }
+
+  private async notifyAppointment(
+    appointmentId: string,
+    event: "created" | "confirmed" | "canceled",
+  ): Promise<void> {
+    try {
+      const appointment = await Agendamento.findById(appointmentId);
+      if (!appointment) return;
+
+      const [cliente, profissional, animal, servico] = await Promise.all([
+        Cliente.findById(appointment.cliente).select("name email"),
+        Profissional.findById(appointment.profissional).select("name email"),
+        Animal.findById(appointment.animal).select("nome"),
+        Servico.findById(appointment.servico).select("name duracao_min"),
+      ]);
+      if (!cliente || !profissional || !animal || !servico) return;
+
+      const details = {
+        event,
+        appointmentId: appointment.id,
+        clientName: cliente.name,
+        professionalName: profissional.name,
+        animalName: animal.nome,
+        serviceName: servico.name,
+        startsAt: new Date(appointment.data_hora),
+        durationMinutes: servico.duracao_min,
+      };
+      const recipients = new Map([
+        [cliente.email, cliente.name],
+        [profissional.email, profissional.name],
+      ]);
+
+      await Promise.all(
+        [...recipients].map(async ([email, recipientName]) => {
+          try {
+            await emailService.sendAppointmentNotification({ ...details, email, recipientName });
+          } catch (error) {
+            console.error(
+              `Falha ao enviar notificação de agendamento ${appointment.id} (${event})`,
+              error instanceof Error ? error.message : error,
+            );
+          }
+        }),
+      );
+    } catch (error) {
+      console.error(
+        `Falha ao preparar notificação de agendamento ${appointmentId} (${event})`,
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   private async validateAvailability(
@@ -276,7 +340,7 @@ class AgendamentoService {
     }
 
     const lockKey = `${data.profissional}:${dataHora.toISOString().slice(0, 10)}`;
-    return this.withSchedulingLock(lockKey, async () => {
+    const appointment = await this.withSchedulingLock(lockKey, async () => {
       await this.validateAvailability(data.profissional, data.servico, dataHora);
       return Agendamento.create({
         data_hora: dataHora,
@@ -287,11 +351,13 @@ class AgendamentoService {
         profissional: data.profissional,
       });
     });
+    await this.notifyAppointment(appointment.id, "created");
+    return appointment;
   }
 
   public async update(
     id: string,
-    data: Partial<ICreateAgendamentoDTO> & { status?: "agendado" | "cancelado" },
+    data: Partial<ICreateAgendamentoDTO> & { status?: AgendamentoStatus },
     user: { id: string; role: UserRole },
   ) {
     assertObjectId(id, "Agendamento");
@@ -316,9 +382,18 @@ class AgendamentoService {
         data.data_hora !== undefined)
     )
       throw forbidden("Profissional só pode alterar o status do agendamento");
-    if (data.status !== undefined && data.status !== "agendado" && data.status !== "cancelado")
+    if (
+      data.status !== undefined &&
+      data.status !== "agendado" &&
+      data.status !== "confirmado" &&
+      data.status !== "cancelado"
+    )
       throw badRequest("Status inválido");
-    if (user.role !== "admin" && data.status === "agendado" && existing.status === "cancelado")
+    if (data.status === "confirmado" && user.role === "cliente")
+      throw forbidden("Somente administrador ou profissional pode confirmar o agendamento");
+    if (existing.status === "confirmado" && data.status === "agendado")
+      throw forbidden("Um agendamento confirmado não pode voltar para pendente");
+    if (user.role !== "admin" && existing.status === "cancelado" && data.status !== "cancelado")
       throw forbidden("Somente administrador pode reativar agendamento");
 
     const nextProfessional = data.profissional ?? String(existing.profissional);
@@ -330,14 +405,19 @@ class AgendamentoService {
     const nextStatus = data.status ?? existing.status;
     const schedulingChanged =
       data.profissional !== undefined || data.servico !== undefined || data.data_hora !== undefined;
-    if (schedulingChanged || (existing.status === "cancelado" && nextStatus === "agendado"))
+    const needsAvailabilityCheck =
+      nextStatus !== "cancelado" &&
+      (schedulingChanged ||
+        existing.status === "cancelado" ||
+        (nextStatus === "confirmado" && existing.status !== "confirmado"));
+    if (needsAvailabilityCheck)
       await this.validateAvailability(nextProfessional, nextService, nextDateTime, id);
     const nextAnimal = data.animal ?? String(existing.animal);
     assertObjectId(nextAnimal, "Pet");
     if (!(await Animal.exists({ _id: nextAnimal, cliente: existing.cliente })))
       throw badRequest("Pet não pertence ao cliente do agendamento");
 
-    return Agendamento.findByIdAndUpdate(
+    const updated = await Agendamento.findByIdAndUpdate(
       id,
       {
         data_hora: nextDateTime,
@@ -348,6 +428,11 @@ class AgendamentoService {
       },
       { new: true, runValidators: true },
     );
+    if (updated && nextStatus !== existing.status) {
+      if (nextStatus === "confirmado") await this.notifyAppointment(updated.id, "confirmed");
+      if (nextStatus === "cancelado") await this.notifyAppointment(updated.id, "canceled");
+    }
+    return updated;
   }
 
   public async getAvailability(query: IAvailabilityQuery) {
@@ -355,7 +440,8 @@ class AgendamentoService {
       throw new Error("Profissional, serviço e data são obrigatórios");
     }
 
-    const date = this.parseDate(query.date);
+    const date = parseCalendarDate(query.date);
+    if (Number.isNaN(date.getTime())) throw badRequest("Data inválida");
     assertObjectId(query.profissionalId, "Profissional");
     assertObjectId(query.servicoId, "Serviço");
     const servico = await Servico.findById(query.servicoId);
@@ -444,11 +530,11 @@ class AgendamentoService {
       const availability = await this.getAvailability({
         profissionalId: query.profissionalId,
         servicoId: query.servicoId,
-        date: currentDate.toISOString(),
+        date: formatCalendarDate(currentDate),
       });
 
       days.push({
-        date: currentDate.toISOString().slice(0, 10),
+        date: formatCalendarDate(currentDate),
         available: availability.available,
         slotsCount: availability.slots.filter((slot) => slot.available).length,
         workingDay: availability.workingDays.includes(currentDate.getDay()),
@@ -481,10 +567,10 @@ class AgendamentoService {
     assertObjectId(id, "Agendamento");
     const filter =
       user.role === "admin"
-        ? { _id: id, status: "agendado" }
+        ? { _id: id, status: { $in: ["agendado", "confirmado"] } }
         : user.role === "profissional"
-          ? { _id: id, profissional: user.id, status: "agendado" }
-          : { _id: id, cliente: user.id, status: "agendado" };
+          ? { _id: id, profissional: user.id, status: { $in: ["agendado", "confirmado"] } }
+          : { _id: id, cliente: user.id, status: { $in: ["agendado", "confirmado"] } };
     const agendamento = await Agendamento.findOneAndUpdate(
       filter,
       { status: "cancelado" },
@@ -495,6 +581,7 @@ class AgendamentoService {
       throw notFound("Agendamento não encontrado");
     }
 
+    await this.notifyAppointment(agendamento.id, "canceled");
     return agendamento;
   }
 }

@@ -1,6 +1,6 @@
-# PetDogs — API de Estética Pet
+# Estética PetDogs — API
 
-API REST do sistema PetDogs para clientes, profissionais, pets, serviços e agendamentos. Este repositório contém **somente o backend**; não há uma aplicação React, telas, React Router, AuthContext, cliente HTTP ou configuração Cypress versionados nele. A API expõe os endpoints necessários para que o frontend os integre.
+API REST da Estética PetDogs para clientes, profissionais, pets, serviços e agendamentos. Este repositório contém **somente o backend**; não há uma aplicação React, telas, React Router, AuthContext, cliente HTTP ou configuração Cypress versionados nele. A API expõe os endpoints necessários para que o frontend os integre.
 
 ## Tecnologias e estrutura
 
@@ -71,11 +71,14 @@ Para Gmail, crie uma App Password na conta Google com 2FA habilitado e use-a em 
 
 O frontend não faz parte deste repositório. Quando ele estiver disponível, configure a URL da API como `http://localhost:3001/api/v1`, defina `FRONTEND_URL` com a origem efetiva (por exemplo, `http://localhost:5173`) e envie `Authorization: Bearer <token>` apenas nas rotas protegidas. O CORS permite apenas essa origem, não `*`.
 
-Fluxo esperado no frontend: cadastro/login → armazenar sessão de modo consciente (o projeto não fornece uma política de storage) → interceptor/wrapper adiciona o Bearer token → recebe `401` e limpa a sessão → logout remove token e estado. Para o primeiro acesso de contas criadas pelo administrador, siga [`docs/frontend-primeiro-acesso.md`](docs/frontend-primeiro-acesso.md); para recuperação com OTP, siga [`docs/frontend-otp.md`](docs/frontend-otp.md). Nunca exponha `JWT_SECRET` ou credenciais SMTP no frontend.
+Fluxo esperado no frontend: cadastro → confirmação do e-mail → login/sessão → interceptor/wrapper adiciona o Bearer token → recebe `401` e limpa a sessão → logout remove token e estado. Para integrar a confirmação no primeiro cadastro, siga [`docs/frontend-verificar-email.md`](docs/frontend-verificar-email.md). Para o primeiro acesso de contas criadas pelo administrador, siga [`docs/frontend-primeiro-acesso.md`](docs/frontend-primeiro-acesso.md); para recuperação com OTP, siga [`docs/frontend-otp.md`](docs/frontend-otp.md); para disponibilidade e datas locais, siga [`docs/frontend-disponibilidade.md`](docs/frontend-disponibilidade.md). Nunca exponha `JWT_SECRET` ou credenciais SMTP no frontend.
 
 ## Autenticação, autorização e recuperação
 
-- `POST /api/v1/auth/register` normaliza e valida e-mail, exige senha de 8 caracteres, cria um cliente e retorna a sessão sem `senha`/hash.
+- `POST /api/v1/auth/register` normaliza e valida e-mail, exige senha de 8 caracteres, cria um cliente pendente e envia OTP. Não retorna JWT antes da confirmação.
+- `POST /api/v1/auth/verify-email` valida o código único de 6 dígitos (10 minutos, até 5 tentativas), marca o e-mail como confirmado e retorna a primeira sessão.
+- `POST /api/v1/auth/resend-email-verification` troca o código pendente e usa resposta genérica para não revelar contas.
+- O login de um cadastro ainda não confirmado responde `403` com `code: "EMAIL_VERIFICATION_REQUIRED"`; a confirmação/reenvio não exige sessão.
 - `POST /api/v1/auth/login` autentica cliente, profissional ou administrador de ambiente e retorna `{ user, token }`.
 - Contas criadas pelo administrador retornam `user.mustChangePassword: true` no login; até a troca, as rotas protegidas respondem `403` com `code: "PASSWORD_CHANGE_REQUIRED"`.
 - `POST /api/v1/auth/change-password` recebe uma senha nova (mínimo de 8 caracteres, diferente da provisória), remove a exigência, invalida a sessão anterior e devolve uma sessão atualizada. O login público e `GET /auth/me` continuam acessíveis para concluir o primeiro acesso.
@@ -91,18 +94,24 @@ Fluxo esperado no frontend: cadastro/login → armazenar sessão de modo conscie
 
 Base: `http://localhost:3001/api/v1`.
 
-| Método e caminho               | Autenticação | Corpo / resultado                                                                                                              |
-| ------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /auth/register`          | Não          | `{ "name", "email", "password", "telefone?", "foto?" }`; `201` com mensagem, usuário seguro e JWT. Erros: `400`, `409`, `429`. |
-| `POST /auth/login`             | Não          | `{ "email", "password" }`; `200` com usuário seguro e JWT. Erros: `400`, `401`, `429`.                                         |
-| `GET /auth/me`                 | Bearer       | Usuário da sessão; `401` para token ausente, inválido ou expirado.                                                             |
-| `POST /auth/change-password`   | Bearer       | `{ "password" }`; `200` com nova sessão. Erros: `400`, `401`, `403`, `429`.                                                    |
-| `POST /auth/forgot-password`   | Não          | `{ "email" }`; `200` com mensagem genérica. Erros: `400`, `429`.                                                               |
-| `POST /auth/verify-reset-code` | Não          | `{ "email", "code" }`; `200` com `{ "resetToken" }`. Erros: `400`, `429`.                                                      |
-| `POST /auth/reset-password`    | Não          | `{ "resetToken", "password" }`; `200` após redefinir. Erros: `400`, `429`.                                                     |
-| `GET /admin/users`             | Bearer admin | Clientes ativos e profissionais sem hashes. Erros: `401`, `403`.                                                               |
+| Método e caminho                       | Autenticação | Corpo / resultado                                                                                             |
+| -------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/register`                  | Não          | `{ "name", "email", "password", "telefone?", "foto?" }`; `201` pendente, sem JWT. Erros: `400`, `409`, `429`. |
+| `POST /auth/verify-email`              | Não          | `{ "email", "code" }`; `200` com usuário seguro e JWT. Erros: `400`, `429`.                                   |
+| `POST /auth/resend-email-verification` | Não          | `{ "email" }`; `200` com resposta genérica. Erros: `400`, `429`.                                              |
+| `POST /auth/login`                     | Não          | `{ "email", "password" }`; `200` com sessão. Erros: `401`, `403`, `429`.                                      |
+| `GET /auth/me`                         | Bearer       | Usuário da sessão; `401` para token ausente, inválido ou expirado.                                            |
+| `POST /auth/change-password`           | Bearer       | `{ "password" }`; `200` com nova sessão. Erros: `400`, `401`, `403`, `429`.                                   |
+| `POST /auth/forgot-password`           | Não          | `{ "email" }`; `200` com mensagem genérica. Erros: `400`, `429`.                                              |
+| `POST /auth/verify-reset-code`         | Não          | `{ "email", "code" }`; `200` com `{ "resetToken" }`. Erros: `400`, `429`.                                     |
+| `POST /auth/reset-password`            | Não          | `{ "resetToken", "password" }`; `200` após redefinir. Erros: `400`, `429`.                                    |
+| `GET /admin/users`                     | Bearer admin | Clientes ativos e profissionais sem hashes. Erros: `401`, `403`.                                              |
 
 As demais rotas de pets, serviços, agendamentos, profissionais, clientes, relatórios e uploads seguem o mesmo prefixo e estão em `/api/docs`.
+
+Para a consulta de disponibilidade, envie `date` como data local `YYYY-MM-DD`; não aplique `toISOString()` à data escolhida no calendário. `dias_trabalho` usa os índices JavaScript (`0` domingo até `6` sábado) e também aceita `7` para domingo. Consulte [`docs/frontend-disponibilidade.md`](docs/frontend-disponibilidade.md) para exemplos e interpretação dos slots.
+
+Os agendamentos têm status `agendado`, `confirmado` ou `cancelado`. Criar, confirmar e cancelar envia uma notificação HTML para cliente e profissional; admin/profissional confirma via `PUT /agendamentos/{id}` com `{ "status": "confirmado" }`. Veja [`docs/frontend-notificacoes-agendamento.md`](docs/frontend-notificacoes-agendamento.md) para integrar os estados no frontend.
 
 ## Testes e verificações
 
@@ -118,12 +127,13 @@ Os testes unitários disponíveis verificam que a senha não é persistida em te
 
 ## Teste manual
 
-1. Faça `POST /auth/register` com um e-mail novo e confirme que a resposta não possui `senha`.
-2. Faça `POST /auth/login`, copie o `token` e chame `GET /auth/me` com `Authorization: Bearer <token>`.
-3. Com um token de cliente, chame `GET /admin/users` e confirme `403`; sem token, confirme `401`.
-4. Faça login com `ADMIN_EMAIL`/`ADMIN_PASSWORD` e chame `GET /admin/users` para confirmar `200`.
-5. Faça `POST /auth/forgot-password`, valide o código em `POST /auth/verify-reset-code` e use o `resetToken` retornado com a nova senha em `POST /auth/reset-password`.
-6. Confirme que a senha antiga falha, a nova senha autentica e o token anterior passa a retornar `401`.
+1. Faça `POST /auth/register` com um e-mail novo; confirme que a resposta não inclui token e que chega o OTP.
+2. Envie `{ "email", "code" }` a `POST /auth/verify-email`; use o token retornado para `GET /auth/me`.
+3. Teste o login de uma conta pendente: deve retornar `403 EMAIL_VERIFICATION_REQUIRED`.
+4. Com um token de cliente, chame `GET /admin/users` e confirme `403`; sem token, confirme `401`.
+5. Faça login com `ADMIN_EMAIL`/`ADMIN_PASSWORD` e chame `GET /admin/users` para confirmar `200`.
+6. Faça `POST /auth/forgot-password`, valide o código em `POST /auth/verify-reset-code` e use o `resetToken` retornado com a nova senha em `POST /auth/reset-password`.
+7. Confirme que a senha antiga falha, a nova senha autentica e o token anterior passa a retornar `401`.
 
 ## Troubleshooting
 

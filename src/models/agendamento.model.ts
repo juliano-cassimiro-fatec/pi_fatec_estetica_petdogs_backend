@@ -11,7 +11,7 @@ const agendamentoSchema = new Schema<IAgendamento>(
     status: {
       type: String,
       required: true,
-      enum: ["agendado", "cancelado"],
+      enum: ["agendado", "confirmado", "cancelado"],
       default: "agendado",
     },
     cliente: {

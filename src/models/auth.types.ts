@@ -8,6 +8,15 @@ export interface IRegisterDTO {
   foto?: string;
 }
 
+export interface IVerifyEmailDTO {
+  email: string;
+  code: string;
+}
+
+export interface IResendEmailVerificationDTO {
+  email: string;
+}
+
 export interface ILoginDTO {
   email: string;
   password: string;
