@@ -1,4 +1,4 @@
-import { badRequest } from "../errors/app-error.js";
+import { badRequest } from "../middlewares/app-error.js";
 
 export function parseCalendarDate(value: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);

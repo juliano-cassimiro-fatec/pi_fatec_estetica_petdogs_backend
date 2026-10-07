@@ -1,9 +1,9 @@
 import cors from "cors";
 import express from "express";
-import routes from "../routes/index.js";
-import { handleError } from "../middlewares/error.middleware.js";
-import { setupSwagger } from "./swagger.js";
-import { getUploadDirectory, UPLOAD_URL_PREFIX } from "../config/uploads.js";
+import routes from "./routes/index.js";
+import { handleError } from "./middlewares/error.middleware.js";
+import { setupSwagger } from "./routes/swagger.js";
+import { getUploadDirectory, UPLOAD_URL_PREFIX } from "./services/upload.service.js";
 
 const app = express();
 const corsOptions = {

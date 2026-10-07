@@ -8,12 +8,12 @@ import type {
   IUpdateProfissionalDTO,
 } from "../models/profissional.types.js";
 
-import { assertEmail, assertObjectId } from "../utils/validation.js";
-import { badRequest, conflict, notFound } from "../errors/app-error.js";
-import { env } from "../config/env.js";
+import { assertEmail, assertObjectId } from "./validation.js";
+import { badRequest, conflict, notFound } from "../middlewares/app-error.js";
+import { env } from "./env.js";
 import { validateStoredImagePath } from "./upload.service.js";
 import emailService from "./email.service.js";
-import { normalizeWorkingDays } from "../utils/agendamento-date.js";
+import { normalizeWorkingDays } from "./agendamento-date.js";
 
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5];
 const DEFAULT_WORKING_START = "08:00";
@@ -93,8 +93,8 @@ class ProfissionalService {
     assertEmail(email);
 
     const emailExists =
-      (await Profissional.exists({ email })) ||
-      (await Cliente.exists({ email })) ||
+      (await Profissional.exists({ email })) ??
+      (await Cliente.exists({ email })) ??
       email === env("ADMIN_EMAIL").toLowerCase();
 
     if (emailExists) {
@@ -187,11 +187,11 @@ class ProfissionalService {
       assertEmail(email);
 
       const exists =
-        (await Cliente.exists({ email })) ||
+        (await Cliente.exists({ email })) ??
         (await Profissional.exists({
           email,
           _id: { $ne: id },
-        })) ||
+        })) ??
         email === env("ADMIN_EMAIL").toLowerCase();
 
       if (exists) {

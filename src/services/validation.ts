@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { badRequest } from "../errors/app-error.js";
+import { badRequest } from "../middlewares/app-error.js";
 
 export function assertObjectId(value: string, field = "id"): void {
   if (!mongoose.isValidObjectId(value)) throw badRequest(`${field} inválido`);

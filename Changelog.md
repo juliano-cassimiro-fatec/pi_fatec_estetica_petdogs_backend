@@ -13,7 +13,7 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.
 - Configuração de conexão com MongoDB utilizando Mongoose.
 - Configuração de variáveis de ambiente.
 - Configuração de CORS.
-- Estrutura para clientes, profissionais, pets, serviços e agendamentos.
+- Estrutura para clientes, profissionais, cães, serviços e agendamentos.
 - Configuração do ESLint.
 - Configuração do Prettier.
 - Scripts para desenvolvimento, build, lint, formatação e verificação de tipos.

@@ -5,7 +5,7 @@ export const openApiDocument = {
   info: {
     title: "Estética PetDogs API",
     version: "1.0.0",
-    description: "API para cadastro de clientes, profissionais, pets, serviços e agendamentos.",
+    description: "API para cadastro de clientes, profissionais, cães, serviços e agendamentos.",
   },
   servers: [{ url: "/api/v1" }],
   components: {
@@ -118,7 +118,7 @@ export const openApiDocument = {
           disponibilidade_fim: { type: "string", format: "date-time" },
         },
       },
-      Pet: {
+      Cao: {
         type: "object",
         description: "A propriedade foto recebe o caminho retornado por POST /uploads.",
         required: ["nome", "raca", "idade", "porte"],
@@ -132,7 +132,7 @@ export const openApiDocument = {
           cliente: { type: "string" },
         },
       },
-      PetUpdate: {
+      CaoUpdate: {
         type: "object",
         properties: {
           nome: { type: "string" },
@@ -200,7 +200,7 @@ export const openApiDocument = {
         required: ["data_hora", "animal", "servico", "profissional"],
         properties: {
           data_hora: { type: "string", format: "date-time" },
-          animal: { type: "string", description: "ID do pet." },
+          animal: { type: "string", description: "ID do cão vinculado ao agendamento." },
           servico: { type: "string", description: "ID do serviço." },
           profissional: { type: "string", description: "ID do profissional." },
         },
@@ -594,50 +594,52 @@ export const openApiDocument = {
         responses: { "200": { description: "Cliente removido" } },
       },
     },
-    "/pets": {
+    "/caes": {
       get: {
-        summary: "Lista pets do usuário ou todos para admin",
+        summary: "Lista cães do usuário ou todos para admin",
         security: [{ bearerAuth: [] }],
-        responses: { "200": { description: "Pets" } },
+        responses: { "200": { description: "Cães" } },
       },
       post: {
-        summary: "Cria pet",
+        summary: "Cadastra cão",
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
-          content: { "application/json": { schema: { $ref: "#/components/schemas/Pet" } } },
+          content: { "application/json": { schema: { $ref: "#/components/schemas/Cao" } } },
         },
-        responses: { "201": { description: "Pet criado" } },
+        responses: { "201": { description: "Cão cadastrado" } },
       },
     },
-    "/pets/{id}": {
+    "/caes/{id}": {
       get: {
-        summary: "Busca pet",
+        summary: "Busca cão",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Pet" } },
+        responses: { "200": { description: "Cão" } },
       },
       put: {
-        summary: "Atualiza pet",
+        summary: "Atualiza cão",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         requestBody: {
           required: true,
           content: {
-            "application/json": { schema: { $ref: "#/components/schemas/PetUpdate" } },
+            "application/json": { schema: { $ref: "#/components/schemas/CaoUpdate" } },
           },
         },
-        responses: { "200": { description: "Pet atualizado" } },
+        responses: { "200": { description: "Cão atualizado" } },
       },
       delete: {
-        summary: "Remove pet",
+        summary: "Remove cão",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Pet removido" } },
+        responses: { "200": { description: "Cão removido" } },
       },
     },
-    "/animais": { $ref: "#/paths/~1pets" },
-    "/animais/{id}": { $ref: "#/paths/~1pets~1{id}" },
+    "/animais": { $ref: "#/paths/~1caes" },
+    "/animais/{id}": { $ref: "#/paths/~1caes~1{id}" },
+    "/pets": { $ref: "#/paths/~1caes" },
+    "/pets/{id}": { $ref: "#/paths/~1caes~1{id}" },
     "/servicos": {
       get: { summary: "Lista serviços", responses: { "200": { description: "Serviços" } } },
       post: {

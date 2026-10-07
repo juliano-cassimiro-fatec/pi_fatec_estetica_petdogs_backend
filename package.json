@@ -2,7 +2,7 @@
   "name": "petdogs-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "Backend REST para estética pet com clientes, profissionais, pets, serviços e agendamentos.",
+  "description": "Backend REST para estética canina com clientes, profissionais, cães, serviços e agendamentos.",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {

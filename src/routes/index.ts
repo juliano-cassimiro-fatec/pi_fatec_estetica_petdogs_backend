@@ -20,6 +20,7 @@ routes.get("/health", (_request, response) => {
 routes.use("/auth", authRoutes);
 routes.use("/admin", adminRoutes);
 routes.use("/clientes", clienteRoutes);
+routes.use("/caes", animalRoutes);
 routes.use("/pets", animalRoutes);
 routes.use("/animais", animalRoutes);
 routes.use("/servicos", servicoRoutes);

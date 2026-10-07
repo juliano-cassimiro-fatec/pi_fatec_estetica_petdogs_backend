@@ -4,8 +4,8 @@ import Agendamento from "../models/agendamento.model.js";
 import type { UserRole } from "../models/auth.types.js";
 import type { ICreateAnimalDTO, IUpdateAnimalDTO } from "../models/animal.types.js";
 
-import { assertObjectId } from "../utils/validation.js";
-import { conflict, notFound } from "../errors/app-error.js";
+import { assertObjectId } from "./validation.js";
+import { conflict, notFound } from "../middlewares/app-error.js";
 import { validateStoredImagePath } from "./upload.service.js";
 
 class AnimalService {
@@ -61,7 +61,7 @@ class AnimalService {
   }
 
   async getById(id: string, user: { id: string; role: UserRole }) {
-    assertObjectId(id, "Pet");
+    assertObjectId(id, "Cão");
 
     const animal = await Animal.findOne(this.scope(user, id)).populate(
       "cliente",
@@ -69,7 +69,7 @@ class AnimalService {
     );
 
     if (!animal) {
-      throw notFound("Pet não encontrado");
+      throw notFound("Cão não encontrado");
     }
 
     return animal;
@@ -80,7 +80,7 @@ class AnimalService {
     user: { id: string; role: UserRole },
     data: IUpdateAnimalDTO & { cliente?: string },
   ) {
-    assertObjectId(id, "Pet");
+    assertObjectId(id, "Cão");
 
     const payload: Record<string, unknown> = {};
 
@@ -127,23 +127,23 @@ class AnimalService {
     });
 
     if (!animal) {
-      throw notFound("Pet não encontrado");
+      throw notFound("Cão não encontrado");
     }
 
     return animal;
   }
 
   async delete(id: string, user: { id: string; role: UserRole }) {
-    assertObjectId(id, "Pet");
+    assertObjectId(id, "Cão");
 
     if (await Agendamento.exists({ animal: id })) {
-      throw conflict("Pet possui agendamentos e não pode ser removido");
+      throw conflict("Cão possui agendamentos e não pode ser removido");
     }
 
     const animal = await Animal.findOneAndDelete(this.scope(user, id));
 
     if (!animal) {
-      throw notFound("Pet não encontrado");
+      throw notFound("Cão não encontrado");
     }
 
     return animal;

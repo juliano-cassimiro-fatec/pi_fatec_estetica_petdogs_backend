@@ -23,6 +23,8 @@ class AgendamentoController {
     const {
       data_hora,
       dateTime,
+      cao,
+      caoId,
       animal,
       animalId,
       pet,
@@ -38,7 +40,7 @@ class AgendamentoController {
     } = req.body ?? {};
     const agendamento = await agendamentoService.create({
       data_hora: data_hora ?? dateTime,
-      animal: animal ?? animalId ?? pet ?? petId,
+      animal: cao ?? caoId ?? animal ?? animalId ?? pet ?? petId,
       servico: servico ?? servicoId ?? service ?? serviceId,
       profissional: profissional ?? profissionalId ?? professional ?? professionalId,
       cliente: req.user?.id ?? "",
@@ -50,6 +52,8 @@ class AgendamentoController {
     const {
       data_hora,
       dateTime,
+      cao,
+      caoId,
       animal,
       animalId,
       pet,
@@ -68,7 +72,7 @@ class AgendamentoController {
       String(req.params.id ?? ""),
       {
         data_hora: data_hora ?? dateTime,
-        animal: animal ?? animalId ?? pet ?? petId,
+        animal: cao ?? caoId ?? animal ?? animalId ?? pet ?? petId,
         servico: servico ?? servicoId ?? service ?? serviceId,
         profissional: profissional ?? profissionalId ?? professional ?? professionalId,
         status,

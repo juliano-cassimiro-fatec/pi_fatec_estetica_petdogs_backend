@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { AppError } from "../errors/app-error.js";
+import { AppError } from "../middlewares/app-error.js";
 import { saveUploadedImage } from "../services/upload.service.js";
 
 interface UploadBody {

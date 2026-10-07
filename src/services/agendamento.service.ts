@@ -9,19 +9,19 @@ import type {
   IAvailabilityQuery,
   ICreateAgendamentoDTO,
 } from "../models/agendamento.types.js";
-import { badRequest, forbidden, notFound } from "../errors/app-error.js";
-import { assertObjectId } from "../utils/validation.js";
+import { badRequest, forbidden, notFound } from "../middlewares/app-error.js";
+import { assertObjectId } from "./validation.js";
 import emailService from "./email.service.js";
-import {
-  formatCalendarDate,
-  normalizeWorkingDays,
-  parseCalendarDate,
-} from "../utils/agendamento-date.js";
+import { formatCalendarDate, normalizeWorkingDays, parseCalendarDate } from "./agendamento-date.js";
 
 const SLOT_STEP_MINUTES = 15;
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5];
 const DEFAULT_WORKING_START = "08:00";
 const DEFAULT_WORKING_END = "18:00";
+
+function isAgendamentoStatus(value: unknown): value is AgendamentoStatus {
+  return value === "agendado" || value === "confirmado" || value === "cancelado";
+}
 
 interface TimeInterval {
   start: number;
@@ -124,7 +124,6 @@ class AgendamentoService {
 
     const sorted = [...intervals].sort((left, right) => left.start - right.start);
     const first = sorted[0]!;
-    if (!first) return [];
 
     const merged: TimeInterval[] = [{ ...first }];
 
@@ -326,17 +325,17 @@ class AgendamentoService {
 
   public async create(data: ICreateAgendamentoDTO) {
     if (!data.animal || !data.servico || !data.profissional || !data.data_hora || !data.cliente) {
-      throw new Error("Pet, serviço, profissional, data e hora são obrigatórios");
+      throw new Error("Cão, serviço, profissional, data e hora são obrigatórios");
     }
 
     const dataHora = this.parseDate(data.data_hora);
-    assertObjectId(data.animal, "Pet");
+    assertObjectId(data.animal, "Cão");
     assertObjectId(data.cliente, "Cliente");
 
     const animal = await Animal.findOne({ _id: data.animal, cliente: data.cliente });
 
     if (!animal) {
-      throw new Error("Pet não encontrado para o usuário autenticado");
+      throw new Error("Cão não encontrado para o usuário autenticado");
     }
 
     const lockKey = `${data.profissional}:${dataHora.toISOString().slice(0, 10)}`;
@@ -357,7 +356,7 @@ class AgendamentoService {
 
   public async update(
     id: string,
-    data: Partial<ICreateAgendamentoDTO> & { status?: AgendamentoStatus },
+    data: Partial<ICreateAgendamentoDTO> & { status?: unknown },
     user: { id: string; role: UserRole },
   ) {
     assertObjectId(id, "Agendamento");
@@ -382,18 +381,16 @@ class AgendamentoService {
         data.data_hora !== undefined)
     )
       throw forbidden("Profissional só pode alterar o status do agendamento");
-    if (
-      data.status !== undefined &&
-      data.status !== "agendado" &&
-      data.status !== "confirmado" &&
-      data.status !== "cancelado"
-    )
+    const requestedStatus = data.status;
+    if (requestedStatus !== undefined && !isAgendamentoStatus(requestedStatus))
       throw badRequest("Status inválido");
-    if (data.status === "confirmado" && user.role === "cliente")
+    const nextStatus = requestedStatus ?? existing.status;
+
+    if (nextStatus === "confirmado" && user.role === "cliente")
       throw forbidden("Somente administrador ou profissional pode confirmar o agendamento");
-    if (existing.status === "confirmado" && data.status === "agendado")
+    if (existing.status === "confirmado" && nextStatus === "agendado")
       throw forbidden("Um agendamento confirmado não pode voltar para pendente");
-    if (user.role !== "admin" && existing.status === "cancelado" && data.status !== "cancelado")
+    if (user.role !== "admin" && existing.status === "cancelado" && nextStatus !== "cancelado")
       throw forbidden("Somente administrador pode reativar agendamento");
 
     const nextProfessional = data.profissional ?? String(existing.profissional);
@@ -402,7 +399,6 @@ class AgendamentoService {
       ? this.parseDate(data.data_hora)
       : new Date(existing.data_hora);
 
-    const nextStatus = data.status ?? existing.status;
     const schedulingChanged =
       data.profissional !== undefined || data.servico !== undefined || data.data_hora !== undefined;
     const needsAvailabilityCheck =
@@ -413,9 +409,9 @@ class AgendamentoService {
     if (needsAvailabilityCheck)
       await this.validateAvailability(nextProfessional, nextService, nextDateTime, id);
     const nextAnimal = data.animal ?? String(existing.animal);
-    assertObjectId(nextAnimal, "Pet");
+    assertObjectId(nextAnimal, "Cão");
     if (!(await Animal.exists({ _id: nextAnimal, cliente: existing.cliente })))
-      throw badRequest("Pet não pertence ao cliente do agendamento");
+      throw badRequest("Cão não pertence ao cliente do agendamento");
 
     const updated = await Agendamento.findByIdAndUpdate(
       id,

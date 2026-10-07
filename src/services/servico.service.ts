@@ -1,7 +1,7 @@
 import Servico from "../models/servico.model.js";
 import type { ICreateServicoDTO, IUpdateServicoDTO } from "../models/servico.types.js";
-import { notFound, badRequest, conflict } from "../errors/app-error.js";
-import { assertObjectId } from "../utils/validation.js";
+import { notFound, badRequest, conflict } from "../middlewares/app-error.js";
+import { assertObjectId } from "./validation.js";
 import Agendamento from "../models/agendamento.model.js";
 
 class ServicoService {

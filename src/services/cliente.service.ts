@@ -4,9 +4,9 @@ import Profissional from "../models/profissional.model.js";
 
 import type { ICreateClienteDTO, IUpdateClienteDTO } from "../models/cliente.types.js";
 
-import { env } from "../config/env.js";
-import { notFound, conflict } from "../errors/app-error.js";
-import { assertEmail, assertObjectId } from "../utils/validation.js";
+import { env } from "./env.js";
+import { notFound, conflict } from "../middlewares/app-error.js";
+import { assertEmail, assertObjectId } from "./validation.js";
 import { validateStoredImagePath } from "./upload.service.js";
 import emailService from "./email.service.js";
 

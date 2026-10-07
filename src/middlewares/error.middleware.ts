@@ -1,6 +1,6 @@
 import type { ErrorRequestHandler } from "express";
 import mongoose from "mongoose";
-import { AppError } from "../errors/app-error.js";
+import { AppError } from "./app-error.js";
 
 export const handleError: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
   if (error instanceof AppError) {

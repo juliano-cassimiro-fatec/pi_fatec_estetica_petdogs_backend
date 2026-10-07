@@ -1,6 +1,6 @@
 # Estética PetDogs — API
 
-API REST da Estética PetDogs para clientes, profissionais, pets, serviços e agendamentos. Este repositório contém **somente o backend**; não há uma aplicação React, telas, React Router, AuthContext, cliente HTTP ou configuração Cypress versionados nele. A API expõe os endpoints necessários para que o frontend os integre.
+API REST da Estética PetDogs para clientes, profissionais, cães, serviços e agendamentos. Este repositório contém **somente o backend**; não há uma aplicação React, telas, React Router, AuthContext, cliente HTTP ou configuração Cypress versionados nele. A API expõe os endpoints necessários para que o frontend os integre.
 
 ## Tecnologias e estrutura
 
@@ -10,13 +10,14 @@ API REST da Estética PetDogs para clientes, profissionais, pets, serviços e ag
 - `crypto.scrypt` para hashes de senha e SMTP seguro (STARTTLS) nativo do Node.js para e-mail.
 
 ```text
-src/app/            Express, CORS e documentação OpenAPI
-src/config/         ambiente, MongoDB e uploads
-src/controllers/    adaptadores HTTP
-src/services/       regras de negócio, autenticação e SMTP
-src/models/         schemas Mongoose
-src/middlewares/    autenticação, autorização, rate limit e erros
-src/routes/         endpoints /api/v1
+src/
+├── controllers/    adaptadores HTTP
+├── services/       regras de negócio, banco, ambiente e uploads
+├── routes/         endpoints /api/v1 e documentação OpenAPI
+├── middlewares/    autenticação, autorização, rate limit e erros
+├── models/         schemas Mongoose
+├── app.ts          configuração do Express
+└── server.ts       inicialização do servidor
 ```
 
 ## Pré-requisitos
@@ -71,7 +72,7 @@ Para Gmail, crie uma App Password na conta Google com 2FA habilitado e use-a em 
 
 O frontend não faz parte deste repositório. Quando ele estiver disponível, configure a URL da API como `http://localhost:3001/api/v1`, defina `FRONTEND_URL` com a origem efetiva (por exemplo, `http://localhost:5173`) e envie `Authorization: Bearer <token>` apenas nas rotas protegidas. O CORS permite apenas essa origem, não `*`.
 
-Fluxo esperado no frontend: cadastro → confirmação do e-mail → login/sessão → interceptor/wrapper adiciona o Bearer token → recebe `401` e limpa a sessão → logout remove token e estado. Para integrar a confirmação no primeiro cadastro, siga [`docs/frontend-verificar-email.md`](docs/frontend-verificar-email.md). Para o primeiro acesso de contas criadas pelo administrador, siga [`docs/frontend-primeiro-acesso.md`](docs/frontend-primeiro-acesso.md); para recuperação com OTP, siga [`docs/frontend-otp.md`](docs/frontend-otp.md); para disponibilidade e datas locais, siga [`docs/frontend-disponibilidade.md`](docs/frontend-disponibilidade.md). Nunca exponha `JWT_SECRET` ou credenciais SMTP no frontend.
+Fluxo esperado no frontend: cadastro → confirmação do e-mail → login/sessão → interceptor/wrapper adiciona o Bearer token → recebe `401` e limpa a sessão → logout remove token e estado. Para gerenciar cães, siga [`docs/frontend-caes.md`](docs/frontend-caes.md). Para integrar a confirmação no primeiro cadastro, siga [`docs/frontend-verificar-email.md`](docs/frontend-verificar-email.md). Para disponibilidade e datas locais, siga [`docs/frontend-disponibilidade.md`](docs/frontend-disponibilidade.md). Nunca exponha `JWT_SECRET` ou credenciais SMTP no frontend.
 
 ## Autenticação, autorização e recuperação
 
@@ -107,7 +108,7 @@ Base: `http://localhost:3001/api/v1`.
 | `POST /auth/reset-password`            | Não          | `{ "resetToken", "password" }`; `200` após redefinir. Erros: `400`, `429`.                                    |
 | `GET /admin/users`                     | Bearer admin | Clientes ativos e profissionais sem hashes. Erros: `401`, `403`.                                              |
 
-As demais rotas de pets, serviços, agendamentos, profissionais, clientes, relatórios e uploads seguem o mesmo prefixo e estão em `/api/docs`.
+As demais rotas de cães, serviços, agendamentos, profissionais, clientes, relatórios e uploads seguem o mesmo prefixo e estão em `/api/docs`. Para cães, use `/caes`; `/pets` e `/animais` continuam disponíveis como aliases de compatibilidade.
 
 Para a consulta de disponibilidade, envie `date` como data local `YYYY-MM-DD`; não aplique `toISOString()` à data escolhida no calendário. `dias_trabalho` usa os índices JavaScript (`0` domingo até `6` sábado) e também aceita `7` para domingo. Consulte [`docs/frontend-disponibilidade.md`](docs/frontend-disponibilidade.md) para exemplos e interpretação dos slots.
 

@@ -14,9 +14,15 @@ import type {
   IVerifyResetCodeDTO,
   UserRole,
 } from "../models/auth.types.js";
-import { env } from "../config/env.js";
-import { AppError, badRequest, conflict, forbidden, unauthorized } from "../errors/app-error.js";
-import { assertEmail } from "../utils/validation.js";
+import { env } from "./env.js";
+import {
+  AppError,
+  badRequest,
+  conflict,
+  forbidden,
+  unauthorized,
+} from "../middlewares/app-error.js";
+import { assertEmail } from "./validation.js";
 import { validateStoredImagePath } from "./upload.service.js";
 import emailService from "./email.service.js";
 

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import net from "net";
 import tls from "tls";
-import { env, optionalEnv } from "../config/env.js";
+import { env, optionalEnv } from "./env.js";
 
 type SmtpSocket = net.Socket | tls.TLSSocket;
 
@@ -31,20 +31,25 @@ function encodeBase64Lines(value: string): string {
   return encoded.match(/.{1,76}/g)?.join("\r\n") ?? "";
 }
 
-function emailLayout(preheader: string, title: string, content: string): string {
+function emailLayout(
+  preheader: string,
+  title: string,
+  content: string,
+  titleColor = "#2563eb",
+): string {
   return `<!doctype html>
 <html lang="pt-BR">
-  <body style="margin:0;padding:0;background:#f2f6f3;font-family:Arial,Helvetica,sans-serif;color:#18352f;">
+  <body style="margin:0;padding:0;background:#dbeafe;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f2f6f3;padding:32px 12px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#dbeafe;padding:32px 12px;">
       <tr><td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #dce7df;border-radius:12px;overflow:hidden;">
-          <tr><td style="padding:24px 32px;background:#145a4a;color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:1px;">ESTÉTICA PETDOGS</td></tr>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #dbeafe;border-radius:12px;overflow:hidden;">
+          <tr><td style="padding:24px 32px;background:#2563eb;color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:1px;">ESTÉTICA PETDOGS</td></tr>
           <tr><td style="padding:32px;">
-            <h1 style="margin:0 0 20px;font-size:26px;line-height:1.25;color:#173d32;">${title}</h1>
+            <h1 style="margin:0 0 20px;font-size:26px;line-height:1.25;color:${titleColor};">${title}</h1>
             ${content}
           </td></tr>
-          <tr><td style="padding:20px 32px;background:#f7faf8;border-top:1px solid #e4ece6;color:#61736b;font-size:12px;line-height:1.6;">
+          <tr><td style="padding:20px 32px;background:#dbeafe;border-top:1px solid #dbeafe;color:#334155;font-size:12px;line-height:1.6;">
             Estética PetDogs<br>Esta mensagem foi enviada automaticamente. Não responda a este e-mail.
           </td></tr>
         </table>
@@ -200,10 +205,10 @@ class EmailService {
       "Use seu código para continuar com a redefinição de senha.",
       "Vamos recuperar seu acesso",
       `<p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Olá! Recebemos uma solicitação para redefinir sua senha da Estética PetDogs.</p>
-       <p style="margin:0 0 10px;font-size:14px;color:#52675e;">Seu código de verificação</p>
-       <div style="margin:0 0 18px;padding:18px;text-align:center;background:#eff6f1;border:1px solid #d7e7db;border-radius:8px;color:#145a4a;font-size:32px;font-weight:bold;letter-spacing:8px;">${safeCode}</div>
-       <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#52675e;">O código expira em <strong>10 minutos</strong> e pode ser usado uma única vez.</p>
-       <p style="margin:0;font-size:13px;line-height:1.6;color:#61736b;">Se você não solicitou esta alteração, ignore esta mensagem. Sua senha permanecerá inalterada.</p>`,
+      <p style="margin:0 0 10px;font-size:14px;color:#334155;">Seu código de verificação</p>
+      <div style="margin:0 0 18px;padding:18px;text-align:center;background:#dbeafe;border:1px solid #dbeafe;border-radius:8px;color:#2563eb;font-size:32px;font-weight:bold;letter-spacing:8px;">${safeCode}</div>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#334155;">O código expira em <strong>10 minutos</strong> e pode ser usado uma única vez.</p>
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#334155;">Se você não solicitou esta alteração, ignore esta mensagem. Sua senha permanecerá inalterada.</p>`,
     );
     await this.sendMessage(
       email,
@@ -228,10 +233,10 @@ class EmailService {
       "Confirme seu e-mail para concluir seu cadastro na Estética PetDogs.",
       "Só falta confirmar seu e-mail",
       `<p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Olá, <strong>${safeName}</strong>! Que bom ter você com a gente.</p>
-       <p style="margin:0 0 10px;font-size:14px;color:#52675e;">Digite este código para confirmar seu e-mail</p>
-       <div style="margin:0 0 18px;padding:18px;text-align:center;background:#eff6f1;border:1px solid #d7e7db;border-radius:8px;color:#145a4a;font-size:32px;font-weight:bold;letter-spacing:8px;">${safeCode}</div>
-       <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#52675e;">O código expira em <strong>10 minutos</strong> e pode ser usado uma única vez.</p>
-       <p style="margin:0;font-size:13px;line-height:1.6;color:#61736b;">Se você não iniciou este cadastro, ignore esta mensagem.</p>`,
+      <p style="margin:0 0 10px;font-size:14px;color:#334155;">Digite este código para confirmar seu e-mail</p>
+      <div style="margin:0 0 18px;padding:18px;text-align:center;background:#dbeafe;border:1px solid #dbeafe;border-radius:8px;color:#2563eb;font-size:32px;font-weight:bold;letter-spacing:8px;">${safeCode}</div>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#334155;">O código expira em <strong>10 minutos</strong> e pode ser usado uma única vez.</p>
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#334155;">Se você não iniciou este cadastro, ignore esta mensagem.</p>`,
     );
     await this.sendMessage(email, "Confirme seu e-mail | Estética PetDogs", textBody, htmlBody);
   }
@@ -262,16 +267,16 @@ class EmailService {
       "Seu acesso à Estética PetDogs está pronto. Veja os próximos passos.",
       "Seu acesso está pronto",
       `<p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Olá, <strong>${safeHtmlName}</strong>! Seja bem-vindo à Estética PetDogs.</p>
-       <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#52675e;">Criamos seu acesso para você acompanhar e aproveitar nossos serviços.</p>
-       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px;background:#f7faf8;border:1px solid #e0eae2;border-radius:8px;">
-         <tr><td style="padding:16px 18px 6px;color:#61736b;font-size:12px;text-transform:uppercase;">E-mail de acesso</td></tr>
-         <tr><td style="padding:0 18px 16px;color:#18352f;font-size:15px;word-break:break-word;">${safeEmail}</td></tr>
-         <tr><td style="padding:14px 18px 6px;border-top:1px solid #e0eae2;color:#61736b;font-size:12px;text-transform:uppercase;">Senha provisória</td></tr>
-         <tr><td style="padding:0 18px 16px;color:#18352f;font-size:16px;font-weight:bold;word-break:break-word;">${safePassword}</td></tr>
+       <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#334155;">Criamos seu acesso para você acompanhar e aproveitar nossos serviços.</p>
+       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px;background:#dbeafe;border:1px solid #dbeafe;border-radius:8px;">
+         <tr><td style="padding:16px 18px 6px;color:#334155;font-size:12px;text-transform:uppercase;">E-mail de acesso</td></tr>
+         <tr><td style="padding:0 18px 16px;color:#1f2937;font-size:15px;word-break:break-word;">${safeEmail}</td></tr>
+         <tr><td style="padding:14px 18px 6px;border-top:1px solid #ffffff;color:#334155;font-size:12px;text-transform:uppercase;">Senha provisória</td></tr>
+         <tr><td style="padding:0 18px 16px;color:#1f2937;font-size:16px;font-weight:bold;word-break:break-word;">${safePassword}</td></tr>
        </table>
-       <p style="margin:0 0 22px;padding:14px 16px;background:#fff8e8;border-left:4px solid #d7a744;color:#59451c;font-size:14px;line-height:1.6;"><strong>Próximo passo:</strong> no primeiro acesso, crie uma nova senha. Por segurança, as demais áreas ficam bloqueadas até concluir essa etapa.</p>
-       <p style="margin:0 0 24px;"><a href="${safeLoginUrl}" style="display:inline-block;padding:13px 22px;border-radius:6px;background:#145a4a;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;">Acessar minha conta</a></p>
-       <p style="margin:0;font-size:13px;line-height:1.6;color:#61736b;">Se não reconhece este cadastro, entre em contato com nossa equipe de atendimento.</p>`,
+       <p style="margin:0 0 22px;padding:14px 16px;background:#dbeafe;border-left:4px solid #2563eb;color:#1f2937;font-size:14px;line-height:1.6;"><strong>Próximo passo:</strong> no primeiro acesso, crie uma nova senha. Por segurança, as demais áreas ficam bloqueadas até concluir essa etapa.</p>
+       <p style="margin:0 0 24px;"><a href="${safeLoginUrl}" style="display:inline-block;padding:13px 22px;border-radius:6px;background:#2563eb;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;">Acessar minha conta</a></p>
+       <p style="margin:0;font-size:13px;line-height:1.6;color:#334155;">Se não reconhece este cadastro, entre em contato com nossa equipe de atendimento.</p>`,
     );
     await this.sendMessage(email, "Seu acesso à Estética PetDogs está pronto", textBody, htmlBody);
   }
@@ -293,16 +298,28 @@ class EmailService {
         subject: "Recebemos seu agendamento",
         title: "Seu horário foi reservado",
         message: "Seu agendamento foi criado com sucesso.",
+        status: "Agendado",
+        icon: "◷",
+        color: "#2563eb",
+        background: "#dbeafe",
       },
       confirmed: {
         subject: "Seu agendamento foi confirmado",
         title: "Está confirmado!",
         message: "Seu horário está confirmado. Esperamos você!",
+        status: "Confirmado",
+        icon: "✓",
+        color: "#16a34a",
+        background: "#dcfce7",
       },
       canceled: {
         subject: "Seu agendamento foi cancelado",
         title: "Agendamento cancelado",
         message: "O agendamento abaixo foi cancelado.",
+        status: "Cancelado",
+        icon: "×",
+        color: "#dc2626",
+        background: "#fee2e2",
       },
     }[data.event];
     const dateTime = data.startsAt.toLocaleString("pt-BR", {
@@ -317,7 +334,7 @@ class EmailService {
     const safeDateTime = escapeHtml(dateTime);
     const details = [
       `Agendamento: ${data.appointmentId}`,
-      `Pet: ${data.animalName}`,
+      `Cão: ${data.animalName}`,
       `Serviço: ${data.serviceName}`,
       `Profissional: ${data.professionalName}`,
       `Cliente: ${data.clientName}`,
@@ -327,6 +344,7 @@ class EmailService {
     const textBody = [
       `Olá, ${data.recipientName}!`,
       "",
+      `Status: ${eventContent.status}`,
       eventContent.message,
       "",
       ...details,
@@ -336,20 +354,27 @@ class EmailService {
     const htmlBody = emailLayout(
       eventContent.message,
       eventContent.title,
-      `<p style="margin:0 0 20px;font-size:16px;line-height:1.6;">Olá, <strong>${safeName}</strong>! ${eventContent.message}</p>
-       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px;background:#f7faf8;border:1px solid #e0eae2;border-radius:8px;">
-         <tr><td style="padding:16px 18px 6px;color:#61736b;font-size:12px;text-transform:uppercase;">Pet</td></tr>
-         <tr><td style="padding:0 18px 14px;color:#18352f;font-size:15px;">${safeAnimal}</td></tr>
-         <tr><td style="padding:12px 18px 6px;border-top:1px solid #e0eae2;color:#61736b;font-size:12px;text-transform:uppercase;">Serviço</td></tr>
-         <tr><td style="padding:0 18px 14px;color:#18352f;font-size:15px;">${safeService} · ${data.durationMinutes} min</td></tr>
-         <tr><td style="padding:12px 18px 6px;border-top:1px solid #e0eae2;color:#61736b;font-size:12px;text-transform:uppercase;">Data e horário</td></tr>
-         <tr><td style="padding:0 18px 14px;color:#18352f;font-size:15px;">${safeDateTime}</td></tr>
-         <tr><td style="padding:12px 18px 6px;border-top:1px solid #e0eae2;color:#61736b;font-size:12px;text-transform:uppercase;">Profissional</td></tr>
-         <tr><td style="padding:0 18px 14px;color:#18352f;font-size:15px;">${safeProfessional}</td></tr>
-         <tr><td style="padding:12px 18px 6px;border-top:1px solid #e0eae2;color:#61736b;font-size:12px;text-transform:uppercase;">Cliente</td></tr>
-         <tr><td style="padding:0 18px 16px;color:#18352f;font-size:15px;">${safeClient}</td></tr>
+      `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:${eventContent.background};border:1px solid ${eventContent.color};border-radius:8px;">
+         <tr><td style="padding:12px 16px;">
+           <span style="display:inline-block;width:38px;height:38px;line-height:38px;text-align:center;border-radius:50%;background:${eventContent.color};color:#ffffff;font-size:24px;font-weight:bold;vertical-align:middle;">${eventContent.icon}</span>
+           <span style="padding-left:10px;color:${eventContent.color};font-size:16px;font-weight:bold;vertical-align:middle;">${eventContent.status}</span>
+         </td></tr>
        </table>
-       <p style="margin:0;font-size:12px;color:#61736b;">Código do agendamento: ${escapeHtml(data.appointmentId)}</p>`,
+       <p style="margin:0 0 20px;font-size:16px;line-height:1.6;">Olá, <strong>${safeName}</strong>! ${eventContent.message}</p>
+       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px;background:#dbeafe;border:1px solid #dbeafe;border-radius:8px;">
+         <tr><td style="padding:16px 18px 6px;color:#334155;font-size:12px;text-transform:uppercase;">Cão</td></tr>
+         <tr><td style="padding:0 18px 14px;color:#1f2937;font-size:15px;">${safeAnimal}</td></tr>
+         <tr><td style="padding:12px 18px 6px;border-top:1px solid #ffffff;color:#334155;font-size:12px;text-transform:uppercase;">Serviço</td></tr>
+         <tr><td style="padding:0 18px 14px;color:#1f2937;font-size:15px;">${safeService} · ${data.durationMinutes} min</td></tr>
+         <tr><td style="padding:12px 18px 6px;border-top:1px solid #ffffff;color:#334155;font-size:12px;text-transform:uppercase;">Data e horário</td></tr>
+         <tr><td style="padding:0 18px 14px;color:#1f2937;font-size:15px;">${safeDateTime}</td></tr>
+         <tr><td style="padding:12px 18px 6px;border-top:1px solid #ffffff;color:#334155;font-size:12px;text-transform:uppercase;">Profissional</td></tr>
+         <tr><td style="padding:0 18px 14px;color:#1f2937;font-size:15px;">${safeProfessional}</td></tr>
+         <tr><td style="padding:12px 18px 6px;border-top:1px solid #ffffff;color:#334155;font-size:12px;text-transform:uppercase;">Cliente</td></tr>
+         <tr><td style="padding:0 18px 16px;color:#1f2937;font-size:15px;">${safeClient}</td></tr>
+       </table>
+      <p style="margin:0;font-size:12px;color:#334155;">Código do agendamento: ${escapeHtml(data.appointmentId)}</p>`,
+      eventContent.color,
     );
     await this.sendMessage(
       data.email,
