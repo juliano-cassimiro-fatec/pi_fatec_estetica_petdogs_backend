@@ -13,10 +13,9 @@ const animalSchema = new Schema<IAnimal>(
       required: true,
       trim: true,
     },
-    idade: {
-      type: Number,
+    data_nascimento: {
+      type: String,
       required: true,
-      min: 0,
     },
     porte: {
       type: String,

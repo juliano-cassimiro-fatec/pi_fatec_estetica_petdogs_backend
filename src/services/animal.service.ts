@@ -14,8 +14,8 @@ class AnimalService {
       throw new Error("Nome, raça, porte e tutor são obrigatórios");
     }
 
-    if (!Number.isFinite(Number(data.idade)) || Number(data.idade) < 0) {
-      throw new Error("Idade inválida");
+    if (!data.data_nascimento || typeof data.data_nascimento !== "string") {
+      throw new Error("Data de nascimento obrigatória");
     }
 
     if (!["pequeno", "medio", "grande"].includes(data.porte.trim().toLowerCase())) {
@@ -42,7 +42,7 @@ class AnimalService {
     const payload: Record<string, unknown> = {
       nome: data.nome.trim(),
       raca: data.raca.trim(),
-      idade: Number(data.idade),
+      data_nascimento: data.data_nascimento.trim(),
       porte: data.porte.trim().toLowerCase(),
       cliente: data.cliente,
     };
@@ -102,14 +102,12 @@ class AnimalService {
       payload.porte = porte;
     }
 
-    if (data.idade !== undefined) {
-      const idade = Number(data.idade);
-
-      if (!Number.isFinite(idade) || idade < 0) {
-        throw new Error("Idade inválida");
+    if (data.data_nascimento !== undefined) {
+      if (typeof data.data_nascimento !== "string") {
+        throw new Error("Data de nascimento inválida");
       }
 
-      payload.idade = idade;
+      payload.data_nascimento = data.data_nascimento.trim();
     }
 
     if (data.foto !== undefined) {

@@ -3,7 +3,7 @@ import type { Types } from "mongoose";
 export interface IAnimal {
   nome: string;
   raca: string;
-  idade: number;
+  data_nascimento: string;
   porte: "pequeno" | "medio" | "grande";
   foto?: string;
   cliente: Types.ObjectId | string;
@@ -14,7 +14,7 @@ export interface IAnimal {
 export interface ICreateAnimalDTO {
   nome: string;
   raca: string;
-  idade: number;
+  data_nascimento: string;
   porte: "pequeno" | "medio" | "grande";
   foto?: string;
   cliente: string;
@@ -23,7 +23,7 @@ export interface ICreateAnimalDTO {
 export interface IUpdateAnimalDTO {
   nome?: string;
   raca?: string;
-  idade?: number;
+  data_nascimento?: string;
   porte?: "pequeno" | "medio" | "grande";
   foto?: string;
 }
