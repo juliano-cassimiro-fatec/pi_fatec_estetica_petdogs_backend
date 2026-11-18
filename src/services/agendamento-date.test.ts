@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { formatCalendarDate, normalizeWorkingDays, parseCalendarDate } from "./agendamento-date.js";
 
-test("mantém o dia de calendário ao interpretar YYYY-MM-DD", () => {
+test("CT-003: mantém o dia de calendário ao interpretar YYYY-MM-DD", () => {
   const date = parseCalendarDate("2026-09-30");
 
   assert.equal(date.getFullYear(), 2026);
@@ -12,14 +12,14 @@ test("mantém o dia de calendário ao interpretar YYYY-MM-DD", () => {
   assert.equal(formatCalendarDate(date), "2026-09-30");
 });
 
-test("rejeita uma data de calendário inexistente", () => {
+test("CT-004: rejeita uma data de calendário inexistente", () => {
   assert.throws(() => parseCalendarDate("2026-02-30"), /Data inválida/);
 });
 
-test("normaliza domingo ISO para o índice JavaScript e preserva os dias únicos", () => {
+test("CT-005: normaliza domingo ISO e preserva os dias únicos", () => {
   assert.deepEqual(normalizeWorkingDays([1, 7, 0, 1]), [1, 0]);
 });
 
-test("rejeita dias fora dos formatos JavaScript e ISO", () => {
+test("CT-006: rejeita dias fora dos formatos JavaScript e ISO", () => {
   assert.throws(() => normalizeWorkingDays([8]), /Dias de trabalho/);
 });

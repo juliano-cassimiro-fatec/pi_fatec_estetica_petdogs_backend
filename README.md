@@ -122,9 +122,16 @@ npm run lint
 npm run format:check
 npm run build
 npm test
+npm run test:coverage
 ```
 
-Os testes unitários disponíveis verificam que a senha não é persistida em texto puro e que a política mínima de senha é aplicada. Não há testes de integração MongoDB nem Cypress no estado original do repositório, e não foi adicionada uma suíte Cypress artificial porque não existe frontend/endereço de aplicação web neste repositório. Para validar e-mail real, configure SMTP e execute o fluxo contra uma caixa de teste; credenciais Gmail não são fornecidas nem podem ser testadas no repositório.
+Os testes unitários usam o test runner do Node.js e não exigem MongoDB ou SMTP. Os casos são identificados por CT neste repositório. O comando de cobertura inclui os arquivos compilados, inclusive os não exercitados, e gera um relatório em `coverage/`. A meta de 100% ainda não é exigida no CI, pois a cobertura atual está abaixo dela. Os testes não substituem testes de integração; para validar e-mail real, configure SMTP e execute o fluxo contra uma caixa de teste.
+
+### CI e imagem de produção
+
+O GitHub Actions executa as verificações e os testes em pushes e pull requests. Após o sucesso em um push para a branch padrão, publica `ghcr.io/<dono>/<repositorio>:latest` e uma tag com o SHA do commit. O pacote pode ser privado por padrão: ajuste sua visibilidade ou autentique-se no GHCR para baixá-lo. A publicação não implanta a imagem em um servidor.
+
+Para gerar a imagem localmente, use `docker build -f Dockerfile.production -t petdogs-backend .`. Ela escuta na porta 3001 por padrão. Configure as variáveis obrigatórias descritas acima, um MongoDB acessível e um volume persistente gravável pelo usuário `node` no caminho de `UPLOAD_DIR` (por exemplo, `/app/uploads`). O `Dockerfile` original continua destinado ao desenvolvimento.
 
 ## Teste manual
 
