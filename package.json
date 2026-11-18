@@ -15,7 +15,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test": "npm run build && node --test \"dist/**/*.test.js\"",
-    "test:coverage": "npm run build && c8 --all --src dist --include \"dist/**/*.js\" --exclude \"dist/**/*.test.js\" --reporter=text --reporter=lcov node --test \"dist/**/*.test.js\"",
+    "test:coverage": "npm run build && c8 --all --src dist --include \"dist/**/*.js\" --exclude \"dist/**/*.test.js\" --reporter=text --reporter=lcov --reporter=html node --test \"dist/**/*.test.js\"",
     "fix": "npm run lint:fix && npm run format",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run build"
   },

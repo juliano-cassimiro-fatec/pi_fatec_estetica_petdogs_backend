@@ -131,6 +131,8 @@ Os testes unitários usam o test runner do Node.js e não exigem MongoDB ou SMTP
 
 O GitHub Actions executa as verificações e os testes em pushes e pull requests. Após o sucesso em um push para a branch padrão, publica `ghcr.io/<dono>/<repositorio>:latest` e uma tag com o SHA do commit. O pacote pode ser privado por padrão: ajuste sua visibilidade ou autentique-se no GHCR para baixá-lo. A publicação não implanta a imagem em um servidor.
 
+O relatório HTML de cobertura é disponibilizado como artefato e publicado no GitHub Pages após sucesso na branch padrão. É necessário configurar o GitHub Pages para usar GitHub Actions como origem. O relatório público pode conter trechos de código. Os valores locais podem ser armazenados como Actions Secrets, mas não são usados automaticamente pelos testes unitários nem pela publicação da imagem; uma implantação da API deve configurar seu próprio ambiente.
+
 Para gerar a imagem localmente, use `docker build -f Dockerfile.production -t petdogs-backend .`. Ela escuta na porta 3001 por padrão. Configure as variáveis obrigatórias descritas acima, um MongoDB acessível e um volume persistente gravável pelo usuário `node` no caminho de `UPLOAD_DIR` (por exemplo, `/app/uploads`). O `Dockerfile` original continua destinado ao desenvolvimento.
 
 ## Teste manual
