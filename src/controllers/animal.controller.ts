@@ -4,8 +4,19 @@ import type { AuthenticatedRequest } from "../middlewares/request.types.js";
 
 class AnimalController {
   public async create(req: AuthenticatedRequest, res: Response): Promise<Response> {
-    const { nome, name, raca, breed, data_nascimento, birthDate, porte, size, foto, cliente, clienteId } =
-      req.body ?? {};
+    const {
+      nome,
+      name,
+      raca,
+      breed,
+      data_nascimento,
+      birthDate,
+      porte,
+      size,
+      foto,
+      cliente,
+      clienteId,
+    } = req.body ?? {};
     const animal = await animalService.create({
       nome: nome ?? name,
       raca: raca ?? breed,
@@ -32,8 +43,19 @@ class AnimalController {
   }
 
   public async update(req: AuthenticatedRequest, res: Response): Promise<Response> {
-    const { nome, name, raca, breed, data_nascimento, birthDate, porte, size, foto, cliente, clienteId } =
-      req.body ?? {};
+    const {
+      nome,
+      name,
+      raca,
+      breed,
+      data_nascimento,
+      birthDate,
+      porte,
+      size,
+      foto,
+      cliente,
+      clienteId,
+    } = req.body ?? {};
     const animal = await animalService.update(
       String(req.params.id ?? ""),
       { id: req.user?.id ?? "", role: req.user?.role ?? "cliente" },

@@ -29,7 +29,7 @@ function createResponse() {
   };
 }
 
-test("bloqueia funcionalidades para quem precisa trocar a senha", () => {
+test("CT-001: bloqueia funcionalidades para quem precisa trocar a senha", () => {
   const result = createResponse();
   let nextCalled = false;
 
@@ -57,7 +57,7 @@ test("bloqueia funcionalidades para quem precisa trocar a senha", () => {
   assert.equal(nextCalled, false);
 });
 
-test("libera funcionalidades após a troca obrigatória", () => {
+test("CT-002: libera funcionalidades após a troca obrigatória", () => {
   const result = createResponse();
   let nextCalled = false;
 
